@@ -48,7 +48,7 @@ local function minMax(a, b)
     return math.min(a, b), math.max(a, b)
 end
 
-local lo, hi = minMax(10, 3)
+local lo, hi = minMax(-10, 3)
 print("Min: " .. lo .. ", Max: " .. hi)
 
 -- 5. Tables (arrays + dictionaries)

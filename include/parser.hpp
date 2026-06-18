@@ -1,6 +1,7 @@
 #include <lexer.hpp>
 #include <stdbool.h>
 #include <memory>
+#include <unordered_set>
 
 #ifndef PARSER_HPP
 #define PARSER_HPP
@@ -10,6 +11,17 @@ struct Node {
 
   virtual ~Node() = default;
   virtual std::string getName() = 0;
+};
+
+struct UnaryOpNode : Node {
+  Token op;
+  Token value;
+
+  UnaryOpNode(Token o, Token v) : op(std::move(o)), value(std::move(v)) {}
+
+  std::string getName() {
+    return "UnaryOpNode";
+  }
 };
 
 struct BasicDataNode : Node {
@@ -61,15 +73,30 @@ struct WhileNode : Node {
   }
 };
 
-struct ForNode : Node {
-  std::unique_ptr<Node> condition;
+struct NumericForNode : Node {
+  Token var;
+  std::unique_ptr<Node> start;
+  std::unique_ptr<Node> finish;
+  std::unique_ptr<Node> step;
   std::vector<std::unique_ptr<Node>> body;
 
-  ForNode(std::unique_ptr<Node> c, std::vector<std::unique_ptr<Node>> b) 
-  : condition(std::move(c)), body(std::move(b)) { }
+  NumericForNode(Token v, std::unique_ptr<Node> s, std::unique_ptr<Node> f,
+          std::unique_ptr<Node> st, std::vector<std::unique_ptr<Node>> b) 
+  : var(std::move(v)), start(std::move(s)), finish(std::move(f)), step(std::move(st)), body(std::move(b)) { }
 
   std::string getName() override {
-    return "ForNode";
+    return "NumericForNode";
+  }
+};
+
+struct GenericForNode : Node {
+  std::vector<Token> keyArgs;
+  std::unique_ptr<Node> fn;
+
+  GenericForNode(std::vector<Token> ka, std::unique_ptr<Node> f) : keyArgs(std::move(ka)), fn(std::move(f)) {}
+
+  std::string getName() override {
+    return "GenericForNode";
   }
 };
 
@@ -116,6 +143,19 @@ struct CalledFunctionNode : Node {
   }
 };
 
+struct CalledMethodNode : Node {
+  Token value;
+  Token qualifier;
+  std::vector<std::unique_ptr<Node>> args;
+
+  CalledMethodNode(Token v, Token q, std::vector<std::unique_ptr<Node>> a) 
+    : value(std::move(v)), qualifier(q), args(std::move(a)) { }
+
+  std::string getName() override {
+    return "CalledFunctionNode";
+  }
+};
+
 struct VariableNode : Node {
   Token value;
 
@@ -151,6 +191,16 @@ struct BinaryOpNode : Node {
 
   std::string getName() override {
     return "BinaryOpNode";
+  }
+};
+
+struct ReturnNode : Node {
+  std::vector<std::unique_ptr<Node>> args;
+
+  ReturnNode(std::vector<std::unique_ptr<Node>> a) : args(std::move(a)) { }
+
+  std::string getName() override {
+    return "ReturnNode";
   }
 };
 
@@ -218,6 +268,10 @@ private:
     {Type::END_OF_FILE,    "'end of file'"},
   };
 
+  std::unordered_set<Type> UnaryOpSet = {
+    Type::MINUS, Type::PLUS, Type::HASH
+  };
+
   Token peek();
   Token peekNext();
   Token advance();
@@ -235,6 +289,7 @@ private:
   std::unique_ptr<Node> parse_elseif();
   std::unique_ptr<Node> parse_while();
   std::unique_ptr<Node> parse_for();
+  std::unique_ptr<Node> parse_return();
   std::unique_ptr<Node> parse_local();
   std::unique_ptr<Node> parse_function(bool isLocal);
   std::unique_ptr<Node> parse_ident();

@@ -1,12 +1,12 @@
 // need to handle: 
-// return
-// things like this: io.Write(...)
+// ungrade parse_local so it can parse local a, b = 1, 3
+// option 1: create MultipleVariableNode, which will contain map of variables and values
 
 #include <parser.hpp>
 #include <format>
 
 Token Parser::peek() {
-  if (index >= listOfTokens.size()) return Token{.type = Type::END_OF_FILE};  
+  if (index >= listOfTokens.size()) return Token{.type = Type::END_OF_FILE};
   return listOfTokens[index];
 }
 
@@ -140,22 +140,66 @@ std::unique_ptr<Node> Parser::parse_while() {
   );
 }
 
+
 std::unique_ptr<Node> Parser::parse_for() {
   advance();
 
-  std::unique_ptr<Node> condition = parse_expr(0); 
+  Token var;
+  std::unique_ptr<Node> start;
+  std::unique_ptr<Node> finish;
+  std::unique_ptr<Node> step;
 
-  if (!check(Type::KW_DO)) throwError(Type::KW_DO);
+  if (!check(Type::IDENT)) { throwError(Type::IDENT); }
+  var = peek();
+
   advance();
+
+  if (check(Type::COMMA)) {
+    std::vector<Token> keyArgs;
+    keyArgs.push_back(var);
+
+    while (!check(Type::KW_IN)) {
+      if (check(Type::COMMA)) { advance(); }
+
+      keyArgs.push_back(peek());
+    }
+
+    expect(Type::KW_IN);
+
+    // checking if its even a function
+    std::unique_ptr<Node> iter_fn = parse_ident();
+    if (!(iter_fn->getName() == "CalledFunctionNode")) throwError(Type::CALLEDFUNCTION);
+
+    expect(Type::KW_DO);
+
+    return std::make_unique<GenericForNode>(
+      std::move(keyArgs), std::move(iter_fn)  
+    );
+  }
+
+  expect(Type::EQUAL);
+
+  start = parse_expr(0);
+  expect(Type::COMMA);
+
+  finish = parse_expr(0);
+
+  if (check(Type::COMMA)) {
+    advance();
+    step = parse_expr(0);
+  }
+
+  expect(Type::KW_DO);
 
   std::vector<std::unique_ptr<Node>> body = parse_block();
   expect(Type::KW_END);
 
-  return std::make_unique<ForNode>(
-    std::move(condition),
+  return std::make_unique<NumericForNode>(
+    std::move(var), std::move(start), std::move(finish), std::move(step),
     std::move(body) 
   );
 }
+
 
 std::unique_ptr<Node> Parser::parse_if() {
   advance();
@@ -320,9 +364,48 @@ std::unique_ptr<Node> Parser::parse_ident() {
       std::move(right)
     );
   }
-  else {
-    throwError(Type::EQUAL);
+  else if (check(Type::DOT)) {
+    advance();
+
+    Token val = peek();
+    std::vector<std::unique_ptr<Node>> argsVect;
+
+    advance();
+
+    if (check(Type::L_PAREN)) {
+      advance();
+
+      while (!check(Type::R_PAREN)) {
+        argsVect.push_back(parse_expr(0));
+
+        if (check(Type::COMMA)) advance();
+      }
+
+      expect(Type::R_PAREN);
+
+      return std::make_unique<CalledMethodNode>(
+        std::move(val),
+        std::move(value),
+        std::move(argsVect)
+      );
+    }
   }
+
+  throwError(Type::EQUAL);
+}
+
+std::unique_ptr<Node> Parser::parse_return() {
+  advance();
+  std::vector<std::unique_ptr<Node>> args;
+
+  while (!endblock()) {
+    args.push_back(parse_expr(0));
+
+    if (check(Type::COMMA)) advance();
+    else break;
+  }
+
+  return std::make_unique<ReturnNode>(std::move(args));
 }
 
 std::vector<std::unique_ptr<Node>> Parser::parse_block() {
@@ -356,6 +439,8 @@ std::unique_ptr<Node> Parser::parse_stat() {
       return parse_function(false);
     case Type::IDENT:
       return parse_ident();
+    case Type::KW_RETURN:
+      return parse_return();
     default:
       return parse_expr(0); 
   } 
@@ -364,7 +449,6 @@ std::unique_ptr<Node> Parser::parse_stat() {
 int Parser::get_lbp() {
   switch (peek().type) {
     case Type::EQUAL:         return 10;
-    case Type::COMMA:         return 10;
     case Type::VERTICAL_BAR:  return 20;
     case Type::AMPERSAND:     return 30;
     case Type::EQUAL_EQUAL:   return 40;
@@ -392,7 +476,7 @@ std::unique_ptr<Node> Parser::nud() {
     Token value = peek();
     advance();
 
-    return std::make_unique<BasicDataNode>( std::move(value) );
+    return std::make_unique<BasicDataNode>(std::move(value));
   }
   if (check(Type::IDENT)) {
     Token value = peek();
@@ -411,11 +495,38 @@ std::unique_ptr<Node> Parser::nud() {
 
       expect(Type::R_PAREN);
       
-      return std::make_unique<CalledFunctionNode>( value, std::move(args) );
+      return std::make_unique<CalledFunctionNode>(std::move(value), std::move(args));
     }
-    else {
-      return std::make_unique<BasicDataNode>(value);
+    else if (check(Type::DOT)) {
+      advance();
+      if (!check(Type::IDENT)) throwError(Type::IDENT);
+      Token qualifier = advance();
+
+      if (check(Type::L_PAREN)) {
+        advance();
+
+        std::vector<std::unique_ptr<Node>> args;
+        
+        while (!check(Type::R_PAREN)) {
+          args.push_back(parse_expr(0));
+
+          if (check(Type::COMMA)) advance();
+        }
+
+        expect(Type::R_PAREN);
+        
+        return std::make_unique<CalledMethodNode>(std::move(value), std::move(qualifier), std::move(args));
+      }
     }
+    if (UnaryOpSet.contains(peek().type)) {
+      Token op = peek();
+      Token val = peek();
+
+      advance();
+
+      return std::make_unique<UnaryOpNode>(std::move(op), std::move(val));
+    }
+    else return std::make_unique<BasicDataNode>(value);
   } 
 
   throwError(Type::IDENT);

@@ -3,7 +3,6 @@
 #include <vector>         // included for std::vector<Token> tokenize() in class Lexer 
 #include <unordered_map>  // included for std::unordered_map<char, Type> operationMap in class Lexer 
 #include <stdbool.h>      // included for bool match(char expected) in class Lexer 
-#include <cctype>         // included for std::isdigit() in nextToken() function in class Lexer (used in ../src/lexer.cpp)
 
 #ifndef LEXER_HPP
 #define LEXER_HPP

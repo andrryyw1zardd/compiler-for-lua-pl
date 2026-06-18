@@ -1,4 +1,5 @@
 #include "lexer.hpp"
+#include <cctype>
 
 char Lexer::peek() {
   if (index >= sourceCode.size()) return '\0';
