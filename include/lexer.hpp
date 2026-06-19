@@ -25,6 +25,7 @@ enum class Type {
   GREATER_EQUAL, L_PAREN, R_PAREN, L_BRACE,
   R_BRACE, L_BRACKET, R_BRACKET, COMMA,
   COLON, COLON_COLON, SEMICOLON, AMPERSAND, 
+  NOT,
 
   END_OF_FILE, // Specefic
   ERROR
@@ -59,6 +60,7 @@ private:
     {']', Type::R_BRACKET},
     {',', Type::COMMA},
     {';', Type::SEMICOLON},
+    {'!', Type::NOT},
     {'\0', Type::END_OF_FILE},
   };
   

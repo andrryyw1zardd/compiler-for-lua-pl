@@ -15,12 +15,39 @@ struct Node {
 
 struct UnaryOpNode : Node {
   Token op;
-  Token value;
+  std::unique_ptr<Node> value;
 
-  UnaryOpNode(Token o, Token v) : op(std::move(o)), value(std::move(v)) {}
+  UnaryOpNode(Token o, std::unique_ptr<Node> v) : op(std::move(o)), value(std::move(v)) {}
 
   std::string getName() {
     return "UnaryOpNode";
+  }
+};
+
+struct BinaryOpNode : Node {
+  Type op;
+
+  std::unique_ptr<Node> left;
+  std::unique_ptr<Node> right;
+
+  BinaryOpNode(Type op, std::unique_ptr<Node> l, std::unique_ptr<Node> r) 
+    : op(op), left(std::move(l)), right(std::move(r)) { }
+
+  std::string getName() override {
+    return "BinaryOpNode";
+  }
+};
+
+struct MultipleVariableNode : Node {
+  Type op;
+  std::vector<std::unique_ptr<Node>> left_side;
+  std::vector<std::unique_ptr<Node>> right_side;
+
+  MultipleVariableNode(Type op, std::vector<std::unique_ptr<Node>> ls, std::vector<std::unique_ptr<Node>> rs)
+    : op(std::move(op)), left_side(std::move(ls)), right_side(std::move(rs)) { }
+
+  std::string getName() {
+    return "MultipleVariableNode";
   }
 };
 
@@ -131,30 +158,30 @@ struct MethodNode : Node {
   }
 };
 
-struct CalledFunctionNode : Node {
-  Token value;
+struct CallNode : Node {
+  std::unique_ptr<Node> callee;
   std::vector<std::unique_ptr<Node>> args;
 
-  CalledFunctionNode(Token v, std::vector<std::unique_ptr<Node>> a) 
-    : value(std::move(v)), args(std::move(a)) { }
+  CallNode(std::unique_ptr<Node> c, std::vector<std::unique_ptr<Node>> a) 
+    : callee(std::move(c)), args(std::move(a)) { }
 
   std::string getName() override {
-    return "CalledFunctionNode";
+    return "CallNode";
   }
 };
 
-struct CalledMethodNode : Node {
-  Token value;
+struct MemberAccessNode : Node {
+  std::unique_ptr<Node> value;
   Token qualifier;
-  std::vector<std::unique_ptr<Node>> args;
 
-  CalledMethodNode(Token v, Token q, std::vector<std::unique_ptr<Node>> a) 
-    : value(std::move(v)), qualifier(q), args(std::move(a)) { }
+  MemberAccessNode(std::unique_ptr<Node> v, Token q) 
+    : value(std::move(v)), qualifier(std::move(q)) { }
 
   std::string getName() override {
-    return "CalledFunctionNode";
+    return "MemberAccessNode";
   }
 };
+
 
 struct VariableNode : Node {
   Token value;
@@ -177,20 +204,6 @@ struct LocalNode : Node {
 
   std::string getName() override {
     return "LocalNode";
-  }
-};
-
-struct BinaryOpNode : Node {
-  Type op;
-
-  std::unique_ptr<Node> left;
-  std::unique_ptr<Node> right;
-
-  BinaryOpNode(Type op, std::unique_ptr<Node> l, std::unique_ptr<Node> r) 
-    : op(op), left(std::move(l)), right(std::move(r)) { }
-
-  std::string getName() override {
-    return "BinaryOpNode";
   }
 };
 
@@ -269,7 +282,7 @@ private:
   };
 
   std::unordered_set<Type> UnaryOpSet = {
-    Type::MINUS, Type::PLUS, Type::HASH
+    Type::MINUS, Type::PLUS, Type::HASH, Type::NOT
   };
 
   Token peek();

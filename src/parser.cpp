@@ -1,9 +1,6 @@
-// need to handle: 
-// ungrade parse_local so it can parse local a, b = 1, 3
-// option 1: create MultipleVariableNode, which will contain map of variables and values
-
 #include <parser.hpp>
 #include <format>
+#include <iostream>
 
 Token Parser::peek() {
   if (index >= listOfTokens.size()) return Token{.type = Type::END_OF_FILE};
@@ -110,6 +107,8 @@ std::unique_ptr<Node> Parser::parse_local() {
       std::move(array)
     );
   }
+  // checking if theres more than one variable declaration
+  else if (check(Type::COMMA)) {}
 
   if (check(Type::EQUAL)) {
     advance();
@@ -333,65 +332,38 @@ std::unique_ptr<Node> Parser::parse_method(Token className, bool isLocal) {
 }
 
 std::unique_ptr<Node> Parser::parse_ident() {
-  Token value = peek();
-  std::vector<std::unique_ptr<Node>> argsVect;
+  std::vector<std::unique_ptr<Node>> left_side;
 
-  advance();
+  std::unique_ptr<Node> left = parse_expr(0);
+  left_side.push_back(std::move(left));
 
-  if (check(Type::L_PAREN)) {
-    advance();
+  while (check(Type::COMMA)) {
+    if (check(Type::COMMA)) advance();
 
-    while (!check(Type::R_PAREN)) {
-      argsVect.push_back(parse_expr(0));
-
-      if (check(Type::COMMA)) advance();
-    }
-
-    expect(Type::R_PAREN);
-
-    return std::make_unique<CalledFunctionNode>(
-      std::move(value),
-      std::move(argsVect)
-    );
+    left_side.push_back(parse_expr(0));
   }
-  else if (check(Type::EQUAL)) {
+
+  if (check(Type::EQUAL)) {
     advance();
+    std::vector<std::unique_ptr<Node>> right_side;
+
     std::unique_ptr<Node> right = parse_expr(0);
+    right_side.push_back(std::move(right));
 
-    return std::make_unique<BinaryOpNode>(
-      Type::EQUAL,
-      std::make_unique<VariableNode>(std::move(value)),
-      std::move(right)
-    );
-  }
-  else if (check(Type::DOT)) {
-    advance();
+    while (check(Type::COMMA)) {
+      if (check(Type::COMMA)) advance();
 
-    Token val = peek();
-    std::vector<std::unique_ptr<Node>> argsVect;
-
-    advance();
-
-    if (check(Type::L_PAREN)) {
-      advance();
-
-      while (!check(Type::R_PAREN)) {
-        argsVect.push_back(parse_expr(0));
-
-        if (check(Type::COMMA)) advance();
-      }
-
-      expect(Type::R_PAREN);
-
-      return std::make_unique<CalledMethodNode>(
-        std::move(val),
-        std::move(value),
-        std::move(argsVect)
-      );
+      right_side.push_back(parse_expr(0));
     }
+
+    return std::make_unique<MultipleVariableNode>(Type::EQUAL, std::move(left_side), std::move(right_side));
   }
 
-  throwError(Type::EQUAL);
+  if (left_side.size() == 1 && left_side.front()->getName() == "CallNode")
+    return std::move(left_side.front());
+
+  throwError(Type::IDENT);
+  return nullptr;
 }
 
 std::unique_ptr<Node> Parser::parse_return() {
@@ -448,7 +420,6 @@ std::unique_ptr<Node> Parser::parse_stat() {
 
 int Parser::get_lbp() {
   switch (peek().type) {
-    case Type::EQUAL:         return 10;
     case Type::VERTICAL_BAR:  return 20;
     case Type::AMPERSAND:     return 30;
     case Type::EQUAL_EQUAL:   return 40;
@@ -462,9 +433,11 @@ int Parser::get_lbp() {
     case Type::MINUS:         return 60;
     case Type::SLASH:         return 70;
     case Type::STAR:
-      if (peekNext().type == Type::STAR) return 80;
+      if (checkNext(Type::STAR)) return 80;
       return 70;
-
+    case Type::NOT:           return 90;
+    case Type::DOT:           return 100;
+    case Type::L_PAREN:           return 100;
     default: return 0;
   }
 }
@@ -478,56 +451,27 @@ std::unique_ptr<Node> Parser::nud() {
 
     return std::make_unique<BasicDataNode>(std::move(value));
   }
-  if (check(Type::IDENT)) {
+  else if (UnaryOpSet.contains(peek().type)) {
+    Token op = advance();
+
+    auto val = parse_expr(90);
+
+    return std::make_unique<UnaryOpNode>(std::move(op), std::move(val));
+  }
+  else if (check(Type::L_PAREN)) {
+    advance();
+
+    auto inner_expr = parse_expr(0);
+    expect(Type::R_PAREN);
+
+    return inner_expr;
+  }
+  else if (check(Type::IDENT)) {
     Token value = peek();
     advance();
 
-    if (check(Type::L_PAREN)) {
-      advance();
-
-      std::vector<std::unique_ptr<Node>> args;
-      
-      while (!check(Type::R_PAREN)) {
-        args.push_back(parse_expr(0));
-
-        if (check(Type::COMMA)) advance();
-      }
-
-      expect(Type::R_PAREN);
-      
-      return std::make_unique<CalledFunctionNode>(std::move(value), std::move(args));
-    }
-    else if (check(Type::DOT)) {
-      advance();
-      if (!check(Type::IDENT)) throwError(Type::IDENT);
-      Token qualifier = advance();
-
-      if (check(Type::L_PAREN)) {
-        advance();
-
-        std::vector<std::unique_ptr<Node>> args;
-        
-        while (!check(Type::R_PAREN)) {
-          args.push_back(parse_expr(0));
-
-          if (check(Type::COMMA)) advance();
-        }
-
-        expect(Type::R_PAREN);
-        
-        return std::make_unique<CalledMethodNode>(std::move(value), std::move(qualifier), std::move(args));
-      }
-    }
-    if (UnaryOpSet.contains(peek().type)) {
-      Token op = peek();
-      Token val = peek();
-
-      advance();
-
-      return std::make_unique<UnaryOpNode>(std::move(op), std::move(val));
-    }
-    else return std::make_unique<BasicDataNode>(value);
-  } 
+    return std::make_unique<VariableNode>(std::move(value));
+  }
 
   throwError(Type::IDENT);
 }
@@ -567,20 +511,45 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
       continue;
     }
 
-    advance();
+    if (op == Type::DOT) {
+      advance();
 
-    std::unique_ptr<Node> right; 
+      if (!check(Type::IDENT)) throwError(Type::IDENT);
+      auto q = advance();
 
-    if (op == Type::EQUAL) {
-      right = parse_expr(lbp-1);
+      left = std::make_unique<MemberAccessNode>(std::move(left), std::move(q));
+      continue;
     }
-    else right = parse_expr(lbp);
 
-    left = std::make_unique<BinaryOpNode>(
-      op,
-      std::move(left),
-      std::move(right)
-    );
+    if (op == Type::L_PAREN) {
+      advance(); 
+
+      std::vector<std::unique_ptr<Node>> args;
+
+      while (!check(Type::R_PAREN)) {
+        args.push_back(parse_expr(0));
+
+        if (check(Type::COMMA)) advance();
+      }
+
+      expect(Type::R_PAREN); 
+
+      left = std::make_unique<CallNode>(std::move(left), std::move(args));
+      continue;
+    }
+
+    if (lbp > 0) {
+      advance();
+
+      std::unique_ptr<Node> right = parse_expr(lbp);
+
+      left = std::make_unique<BinaryOpNode>(
+        op,
+        std::move(left),
+        std::move(right)
+      );
+    }
+    else break;
   }
 
   return left;
