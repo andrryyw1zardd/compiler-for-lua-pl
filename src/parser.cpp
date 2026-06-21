@@ -1,6 +1,5 @@
 #include <parser.hpp>
 #include <format>
-#include <iostream>
 
 Token Parser::peek() {
   if (index >= listOfTokens.size()) return Token{.type = Type::END_OF_FILE};
@@ -75,6 +74,42 @@ bool Parser::endblock() {
   return false;
 }
 
+// need to handle braces (L_BRACE, R_BRACE)
+std::unique_ptr<Node> Parser::parse_ident() {
+  std::vector<std::unique_ptr<Node>> left_side;
+
+  std::unique_ptr<Node> left = parse_expr(0);
+  left_side.push_back(std::move(left));
+
+  while (check(Type::COMMA)) {
+    if (check(Type::COMMA)) advance();
+
+    left_side.push_back(parse_expr(0));
+  }
+
+  if (check(Type::EQUAL)) {
+    advance();
+    std::vector<std::unique_ptr<Node>> right_side;
+
+    std::unique_ptr<Node> right = parse_expr(0);
+    right_side.push_back(std::move(right));
+
+    while (check(Type::COMMA)) {
+      if (check(Type::COMMA)) advance();
+
+      right_side.push_back(parse_expr(0));
+    }
+
+    return std::make_unique<MultipleVariableNode>(Type::EQUAL, std::move(left_side), std::move(right_side));
+  }
+
+  if (left_side.size() == 1 && left_side.front()->getName() == "CallNode")
+    return std::move(left_side.front());
+
+  throwError(Type::IDENT);
+  return nullptr;
+}
+
 std::unique_ptr<Node> Parser::parse_local() {
   advance();
 
@@ -85,37 +120,67 @@ std::unique_ptr<Node> Parser::parse_local() {
     else throwError(Type::KW_FUNCTION);
   }
 
-  Token name = advance();
+  Token name = peek();
   std::unique_ptr<Node> expr = nullptr;
 
-  if (check(Type::L_BRACKET)) {
-    advance();
-    std::vector<std::unique_ptr<Node>> array;
-    std::unique_ptr<Node> element;
+  if (checkNext(Type::COMMA)) {
+    std::vector<std::unique_ptr<Node>> left_side;
 
-    while (!check(Type::R_BRACKET)) { 
-      array.push_back(parse_expr(0)); 
+    std::unique_ptr<Node> left = parse_expr(0);
+    left_side.push_back(std::move(left));
 
+    while (check(Type::COMMA)) {
       if (check(Type::COMMA)) advance();
+
+      left_side.push_back(parse_expr(0));
     }
 
-    expect(Type::R_BRACKET);
+    if (check(Type::EQUAL)) {
+      advance();
+      std::vector<std::unique_ptr<Node>> right_side;
 
-    return std::make_unique<LocalNode>(
-      std::move(name),
-      nullptr,
-      std::move(array)
-    );
+      std::unique_ptr<Node> right = parse_expr(0);
+      right_side.push_back(std::move(right));
+
+      while (check(Type::COMMA)) {
+        if (check(Type::COMMA)) advance();
+
+        right_side.push_back(parse_expr(0));
+      }
+
+      return std::make_unique<MultipleVariableNode>(
+        Type::EQUAL, std::move(left_side), std::move(right_side)
+      );
+    }
   }
-  // checking if theres more than one variable declaration
-  else if (check(Type::COMMA)) {}
 
-  if (check(Type::EQUAL)) {
+  else if (check(Type::EQUAL)) {
     advance();
+
+    if (check(Type::L_BRACE)) {
+      advance();
+
+      std::vector<std::unique_ptr<Node>> array;
+
+      while (!check(Type::R_BRACE)) { 
+        array.push_back(parse_expr(0)); 
+
+        if (check(Type::COMMA)) advance();
+      }
+
+      expect(Type::R_BRACE);
+
+      return std::make_unique<DefineVariableNode>(
+        std::move(name),
+        nullptr,
+        std::move(array)
+      );
+    }
+
     expr = parse_expr(0);
   }
 
-  return std::make_unique<LocalNode>(
+  return std::make_unique<DefineVariableNode>(
     std::move(name),
     std::move(expr),
     std::vector<std::unique_ptr<Node>>{}
@@ -329,41 +394,6 @@ std::unique_ptr<Node> Parser::parse_method(Token className, bool isLocal) {
     std::move(args),
     std::move(body)
   );
-}
-
-std::unique_ptr<Node> Parser::parse_ident() {
-  std::vector<std::unique_ptr<Node>> left_side;
-
-  std::unique_ptr<Node> left = parse_expr(0);
-  left_side.push_back(std::move(left));
-
-  while (check(Type::COMMA)) {
-    if (check(Type::COMMA)) advance();
-
-    left_side.push_back(parse_expr(0));
-  }
-
-  if (check(Type::EQUAL)) {
-    advance();
-    std::vector<std::unique_ptr<Node>> right_side;
-
-    std::unique_ptr<Node> right = parse_expr(0);
-    right_side.push_back(std::move(right));
-
-    while (check(Type::COMMA)) {
-      if (check(Type::COMMA)) advance();
-
-      right_side.push_back(parse_expr(0));
-    }
-
-    return std::make_unique<MultipleVariableNode>(Type::EQUAL, std::move(left_side), std::move(right_side));
-  }
-
-  if (left_side.size() == 1 && left_side.front()->getName() == "CallNode")
-    return std::move(left_side.front());
-
-  throwError(Type::IDENT);
-  return nullptr;
 }
 
 std::unique_ptr<Node> Parser::parse_return() {

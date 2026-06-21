@@ -38,6 +38,42 @@ struct BinaryOpNode : Node {
   }
 };
 
+struct MemberAccessNode : Node {
+  std::unique_ptr<Node> value;
+  Token qualifier;
+
+  MemberAccessNode(std::unique_ptr<Node> v, Token q) 
+    : value(std::move(v)), qualifier(std::move(q)) { }
+
+  std::string getName() override {
+    return "MemberAccessNode";
+  }
+};
+
+struct VariableNode : Node {
+  Token value;
+
+  VariableNode(Token v) : value(v) { }
+
+  std::string getName() override {
+    return "VariableNode";
+  }
+};
+
+struct DefineVariableNode : Node {
+  Token value;
+
+  std::unique_ptr<Node> right;
+  std::vector<std::unique_ptr<Node>> arrayElements;
+
+  DefineVariableNode(Token v, std::unique_ptr<Node> r, std::vector<std::unique_ptr<Node>> ae)
+    : value(std::move(v)), right(std::move(r)), arrayElements(std::move(ae)) { }  
+
+  std::string getName() override {
+    return "DefineVariableNode";
+  }
+};
+
 struct MultipleVariableNode : Node {
   Type op;
   std::vector<std::unique_ptr<Node>> left_side;
@@ -167,43 +203,6 @@ struct CallNode : Node {
 
   std::string getName() override {
     return "CallNode";
-  }
-};
-
-struct MemberAccessNode : Node {
-  std::unique_ptr<Node> value;
-  Token qualifier;
-
-  MemberAccessNode(std::unique_ptr<Node> v, Token q) 
-    : value(std::move(v)), qualifier(std::move(q)) { }
-
-  std::string getName() override {
-    return "MemberAccessNode";
-  }
-};
-
-
-struct VariableNode : Node {
-  Token value;
-
-  VariableNode(Token v) : value(v) { }
-
-  std::string getName() override {
-    return "VariableNode";
-  }
-};
-
-struct LocalNode : Node {
-  Token value;
-
-  std::unique_ptr<Node> right;
-  std::vector<std::unique_ptr<Node>> arrayElements;
-
-  LocalNode(Token v, std::unique_ptr<Node> r, std::vector<std::unique_ptr<Node>> ae)
-    : value(std::move(v)), right(std::move(r)), arrayElements(std::move(ae)) { }  
-
-  std::string getName() override {
-    return "LocalNode";
   }
 };
 
