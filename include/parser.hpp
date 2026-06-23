@@ -155,8 +155,11 @@ struct NumericForNode : Node {
 struct GenericForNode : Node {
   std::vector<Token> keyArgs;
   std::unique_ptr<Node> fn;
+  std::vector<std::unique_ptr<Node>> body;
 
-  GenericForNode(std::vector<Token> ka, std::unique_ptr<Node> f) : keyArgs(std::move(ka)), fn(std::move(f)) {}
+
+  GenericForNode(std::vector<Token> ka, std::unique_ptr<Node> f, std::vector<std::unique_ptr<Node>> b) 
+  : keyArgs(std::move(ka)), fn(std::move(f)), body(std::move(b)) {}
 
   std::string getName() override {
     return "GenericForNode";

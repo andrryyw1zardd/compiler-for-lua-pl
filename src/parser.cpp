@@ -74,7 +74,6 @@ bool Parser::endblock() {
   return false;
 }
 
-// need to handle braces (L_BRACE, R_BRACE)
 std::unique_ptr<Node> Parser::parse_ident() {
   std::vector<std::unique_ptr<Node>> left_side;
 
@@ -154,8 +153,8 @@ std::unique_ptr<Node> Parser::parse_local() {
     }
   }
 
-  else if (check(Type::EQUAL)) {
-    advance();
+  else if (checkNext(Type::EQUAL)) {
+    advance(); advance();
 
     if (check(Type::L_BRACE)) {
       advance();
@@ -223,21 +222,26 @@ std::unique_ptr<Node> Parser::parse_for() {
     keyArgs.push_back(var);
 
     while (!check(Type::KW_IN)) {
-      if (check(Type::COMMA)) { advance(); }
+      keyArgs.push_back(advance());
 
-      keyArgs.push_back(peek());
+      if (check(Type::COMMA)) {
+        advance();
+        if (!check(Type::IDENT)) throwError(Type::IDENT);
+      }
     }
 
     expect(Type::KW_IN);
 
-    // checking if its even a function
     std::unique_ptr<Node> iter_fn = parse_ident();
-    if (!(iter_fn->getName() == "CalledFunctionNode")) throwError(Type::CALLEDFUNCTION);
+    if (!(iter_fn->getName() == "CallNode")) throwError(Type::CALLEDFUNCTION);
 
     expect(Type::KW_DO);
 
+    std::vector<std::unique_ptr<Node>> body = parse_block();
+    expect(Type::KW_END);
+
     return std::make_unique<GenericForNode>(
-      std::move(keyArgs), std::move(iter_fn)  
+      std::move(keyArgs), std::move(iter_fn), std::move(body)
     );
   }
 
@@ -324,6 +328,7 @@ std::unique_ptr<Node> Parser::parse_function(bool isLocal) {
   advance();
 
   std::vector<std::unique_ptr<Node>> Args;
+
   if (check(Type::L_PAREN)) {
     advance();
     std::unique_ptr<Node> args;
@@ -336,12 +341,19 @@ std::unique_ptr<Node> Parser::parse_function(bool isLocal) {
     expect(Type::R_PAREN);
   }
   else {
-    if (check(Type::COLON_COLON)) {
+    if (check(Type::DOT)) {
       advance();
       Token className = peek();
+
       return parse_method(className, isLocal);
     }
-    else throwError(Type::COLON_COLON);
+    if (check(Type::COLON)) {
+      advance();
+      Token className = peek();
+
+      return parse_method(className, isLocal);
+    }
+    else throwError(Type::COLON);
   } 
   
   std::vector<std::unique_ptr<Node>> body = parse_block(); 
@@ -439,12 +451,16 @@ std::unique_ptr<Node> Parser::parse_stat() {
       break;
     case Type::KW_FUNCTION:
       return parse_function(false);
+      break;
     case Type::IDENT:
       return parse_ident();
+      break;
     case Type::KW_RETURN:
       return parse_return();
+      break;
     default:
       return parse_expr(0); 
+      break;
   } 
 }
 
@@ -463,11 +479,11 @@ int Parser::get_lbp() {
     case Type::MINUS:         return 60;
     case Type::SLASH:         return 70;
     case Type::STAR:
-      if (checkNext(Type::STAR)) return 80;
+      if(checkNext(Type::STAR)) return 80;
       return 70;
     case Type::NOT:           return 90;
     case Type::DOT:           return 100;
-    case Type::L_PAREN:           return 100;
+    case Type::L_PAREN:       return 100;
     default: return 0;
   }
 }
