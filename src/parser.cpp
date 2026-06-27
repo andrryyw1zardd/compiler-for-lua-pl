@@ -1,6 +1,16 @@
 #include <parser.hpp>
 #include <format>
 
+// need to add array handling into parse_expr and nud
+// need to add array handling into parse_expr and nud
+// need to add array handling into parse_expr and nud
+// need to add array handling into parse_expr and nud
+// need to add array handling into parse_expr and nud
+// need to add array handling into parse_expr and nud
+// so i dont need to handle every single array in parse_local, parse_ident and so on
+
+// and change parse_local, for now its just shit
+
 Token Parser::peek() {
   if (index >= listOfTokens.size()) return Token{.type = Type::END_OF_FILE};
   return listOfTokens[index];
@@ -138,6 +148,34 @@ std::unique_ptr<Node> Parser::parse_local() {
       advance();
       std::vector<std::unique_ptr<Node>> right_side;
 
+      if (check(Type::L_BRACE)) {
+        advance();
+
+        std::vector<std::unique_ptr<Node>> array;
+
+        while (!check(Type::R_BRACE)) { 
+          array.push_back(parse_expr(0)); 
+
+          if (check(Type::COMMA)) advance();
+        }
+
+        expect(Type::R_BRACE);
+
+        auto right_arr =  std::make_unique<DefineVariableNode>(
+          std::move(name),
+          nullptr,
+          std::move(array)
+        );
+
+        right_side.push_back(std::move(right_arr));
+      }
+
+      if (!check(Type::COMMA)) {
+        return std::make_unique<MultipleVariableNode>(
+          Type::EQUAL, std::move(left_side), std::move(right_side)
+        );
+      }
+
       std::unique_ptr<Node> right = parse_expr(0);
       right_side.push_back(std::move(right));
 
@@ -207,13 +245,12 @@ std::unique_ptr<Node> Parser::parse_while() {
 std::unique_ptr<Node> Parser::parse_for() {
   advance();
 
-  Token var;
   std::unique_ptr<Node> start;
   std::unique_ptr<Node> finish;
   std::unique_ptr<Node> step;
 
   if (!check(Type::IDENT)) { throwError(Type::IDENT); }
-  var = peek();
+  Token var = peek();
 
   advance();
 
@@ -226,6 +263,7 @@ std::unique_ptr<Node> Parser::parse_for() {
 
       if (check(Type::COMMA)) {
         advance();
+
         if (!check(Type::IDENT)) throwError(Type::IDENT);
       }
     }
@@ -511,6 +549,18 @@ std::unique_ptr<Node> Parser::nud() {
     expect(Type::R_PAREN);
 
     return inner_expr;
+  }
+  else if (check(Type::L_BRACE)) {
+    std::vector<std::unique_ptr<Node>> elements;
+
+    while (!check(Type::R_BRACE)) {
+      elements.push_back(parse_expr(0));
+
+      if (check(Type::COMMA)) advance();
+    }
+    expect(Type::R_BRACE);
+
+    return std::make_unique<ArrayNode>(std::move(elements));
   }
   else if (check(Type::IDENT)) {
     Token value = peek();

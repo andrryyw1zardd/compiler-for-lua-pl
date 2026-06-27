@@ -50,6 +50,16 @@ struct MemberAccessNode : Node {
   }
 };
 
+struct BasicDataNode : Node {
+  Token value;
+
+  BasicDataNode(Token v) : value(std::move(v)) { }
+
+  std::string getName() override {
+    return "BasicDataNode";
+  }
+};
+
 struct VariableNode : Node {
   Token value;
 
@@ -87,13 +97,13 @@ struct MultipleVariableNode : Node {
   }
 };
 
-struct BasicDataNode : Node {
-  Token value;
+struct ArrayNode : Node {
+  std::vector<std::unique_ptr<Node>> elements;
 
-  BasicDataNode(Token v) : value(std::move(v)) { }
+  ArrayNode(std::vector<std::unique_ptr<Node>> e) : elements(std::move(e)) { }
 
-  std::string getName() override {
-    return "BasicDataNode";
+  std::string getName() {
+    return "ArrayNode";
   }
 };
 
