@@ -1,16 +1,6 @@
 #include <parser.hpp>
 #include <format>
 
-// need to add array handling into parse_expr and nud
-// need to add array handling into parse_expr and nud
-// need to add array handling into parse_expr and nud
-// need to add array handling into parse_expr and nud
-// need to add array handling into parse_expr and nud
-// need to add array handling into parse_expr and nud
-// so i dont need to handle every single array in parse_local, parse_ident and so on
-
-// and change parse_local, for now its just shit
-
 Token Parser::peek() {
   if (index >= listOfTokens.size()) return Token{.type = Type::END_OF_FILE};
   return listOfTokens[index];
@@ -132,96 +122,61 @@ std::unique_ptr<Node> Parser::parse_local() {
   Token name = peek();
   std::unique_ptr<Node> expr = nullptr;
 
-  if (checkNext(Type::COMMA)) {
-    std::vector<std::unique_ptr<Node>> left_side;
+  std::vector<std::unique_ptr<Node>> left_side;
+  std::vector<std::unique_ptr<Node>> right_side;
 
+  if (checkNext(Type::COMMA)) {
     std::unique_ptr<Node> left = parse_expr(0);
     left_side.push_back(std::move(left));
 
     while (check(Type::COMMA)) {
       if (check(Type::COMMA)) advance();
-
       left_side.push_back(parse_expr(0));
     }
 
     if (check(Type::EQUAL)) {
       advance();
-      std::vector<std::unique_ptr<Node>> right_side;
-
-      if (check(Type::L_BRACE)) {
-        advance();
-
-        std::vector<std::unique_ptr<Node>> array;
-
-        while (!check(Type::R_BRACE)) { 
-          array.push_back(parse_expr(0)); 
-
-          if (check(Type::COMMA)) advance();
-        }
-
-        expect(Type::R_BRACE);
-
-        auto right_arr =  std::make_unique<DefineVariableNode>(
-          std::move(name),
-          nullptr,
-          std::move(array)
-        );
-
-        right_side.push_back(std::move(right_arr));
-      }
-
-      if (!check(Type::COMMA)) {
-        return std::make_unique<MultipleVariableNode>(
-          Type::EQUAL, std::move(left_side), std::move(right_side)
-        );
-      }
 
       std::unique_ptr<Node> right = parse_expr(0);
       right_side.push_back(std::move(right));
 
-      while (check(Type::COMMA)) {
-        if (check(Type::COMMA)) advance();
+      if (check(Type::COMMA)) {
+        while (check(Type::COMMA)) {
+          if (check(Type::COMMA)) advance();
+          right_side.push_back(parse_expr(0));
+        }
 
-        right_side.push_back(parse_expr(0));
+        return std::make_unique<MultipleVariableNode>(
+          Type::EQUAL,
+          std::move(left_side), 
+          std::move(right_side)
+        );
       }
-
+      else {
+        return std::make_unique<MultipleVariableNode>(
+          Type::EQUAL,
+          std::move(left_side),
+          std::move(right_side)
+        );
+      }
+    }
+    else {
       return std::make_unique<MultipleVariableNode>(
-        Type::EQUAL, std::move(left_side), std::move(right_side)
+        Type::EQUAL,
+        std::move(left_side),
+        std::move(right_side)
       );
     }
   }
-
   else if (checkNext(Type::EQUAL)) {
-    advance(); advance();
-
-    if (check(Type::L_BRACE)) {
-      advance();
-
-      std::vector<std::unique_ptr<Node>> array;
-
-      while (!check(Type::R_BRACE)) { 
-        array.push_back(parse_expr(0)); 
-
-        if (check(Type::COMMA)) advance();
-      }
-
-      expect(Type::R_BRACE);
-
-      return std::make_unique<DefineVariableNode>(
-        std::move(name),
-        nullptr,
-        std::move(array)
-      );
-    }
-
+    advance();
+    advance();
     expr = parse_expr(0);
+
+    return std::make_unique<DefineVariableNode>( std::move(name), std::move(expr) );
   }
 
-  return std::make_unique<DefineVariableNode>(
-    std::move(name),
-    std::move(expr),
-    std::vector<std::unique_ptr<Node>>{}
-  );
+  return std::make_unique<DefineVariableNode>( std::move(name), std::move(expr) );
 }
 
 std::unique_ptr<Node> Parser::parse_while() {
@@ -551,10 +506,18 @@ std::unique_ptr<Node> Parser::nud() {
     return inner_expr;
   }
   else if (check(Type::L_BRACE)) {
+    advance();
     std::vector<std::unique_ptr<Node>> elements;
 
     while (!check(Type::R_BRACE)) {
-      elements.push_back(parse_expr(0));
+      if (check(Type::IDENT) && checkNext(Type::EQUAL)) {
+        Token key = advance();
+        advance();
+        auto field = parse_expr(0);
+
+        elements.push_back(std::make_unique<TableFieldNode>(std::move(key), std::move(field)));
+      }
+      else elements.push_back(parse_expr(0));
 
       if (check(Type::COMMA)) advance();
     }

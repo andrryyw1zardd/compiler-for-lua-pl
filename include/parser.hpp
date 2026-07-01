@@ -74,10 +74,9 @@ struct DefineVariableNode : Node {
   Token value;
 
   std::unique_ptr<Node> right;
-  std::vector<std::unique_ptr<Node>> arrayElements;
 
-  DefineVariableNode(Token v, std::unique_ptr<Node> r, std::vector<std::unique_ptr<Node>> ae)
-    : value(std::move(v)), right(std::move(r)), arrayElements(std::move(ae)) { }  
+  DefineVariableNode(Token v, std::unique_ptr<Node> r)
+    : value(std::move(v)), right(std::move(r)) { }  
 
   std::string getName() override {
     return "DefineVariableNode";
@@ -104,6 +103,17 @@ struct ArrayNode : Node {
 
   std::string getName() {
     return "ArrayNode";
+  }
+};
+
+struct TableFieldNode : Node {
+  Token key;
+  std::unique_ptr<Node> value;
+
+  TableFieldNode(Token k, std::unique_ptr<Node> v) : key(std::move(k)), value(std::move(v)) {}
+
+  std::string getName() { 
+    return "TableFieldNode"; 
   }
 };
 
