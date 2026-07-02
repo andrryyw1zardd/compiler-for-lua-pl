@@ -17,7 +17,8 @@ struct UnaryOpNode : Node {
   Token op;
   std::unique_ptr<Node> value;
 
-  UnaryOpNode(Token o, std::unique_ptr<Node> v) : op(std::move(o)), value(std::move(v)) {}
+  UnaryOpNode(Token o, std::unique_ptr<Node> v)
+  : op(std::move(o)), value(std::move(v)) {}
 
   std::string getName() {
     return "UnaryOpNode";
@@ -286,7 +287,8 @@ private:
     {Type::R_BRACKET,      "']'"},
     {Type::COMMA,          "','"},
     {Type::SEMICOLON,      "';'"},
-    {Type::COLON_COLON,    "':'"},
+    {Type::COLON,          "':'"},
+    {Type::COLON_COLON,    "'::'"},
     {Type::EQUAL,          "'='"},
     {Type::EQUAL_EQUAL,    "'=='"},
     {Type::NOT_EQUAL,      "'!='"},

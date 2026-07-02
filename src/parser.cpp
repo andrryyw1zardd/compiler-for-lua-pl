@@ -317,8 +317,8 @@ std::unique_ptr<Node> Parser::parse_function(bool isLocal) {
   if (!check(Type::IDENT)) {
     throwError(Type::IDENT);
   }
-  Token funcName = peek();
-  advance();
+
+  Token funcName = advance();
 
   std::vector<std::unique_ptr<Node>> Args;
 
@@ -334,17 +334,9 @@ std::unique_ptr<Node> Parser::parse_function(bool isLocal) {
     expect(Type::R_PAREN);
   }
   else {
-    if (check(Type::DOT)) {
+    if (check(Type::DOT) || check(Type::COLON)) {
       advance();
-      Token className = peek();
-
-      return parse_method(className, isLocal);
-    }
-    if (check(Type::COLON)) {
-      advance();
-      Token className = peek();
-
-      return parse_method(className, isLocal);
+      return parse_method(funcName, isLocal); 
     }
     else throwError(Type::COLON);
   } 
@@ -361,31 +353,20 @@ std::unique_ptr<Node> Parser::parse_function(bool isLocal) {
 }
 
 std::unique_ptr<Node> Parser::parse_method(Token className, bool isLocal) {
-  advance();
-  
-  if (!check(Type::IDENT)) {
-    throwError(Type::IDENT);
-  }
-
-  Token methodName = peek();
-  advance();
-
+  Token methodName = advance();
   std::vector<std::unique_ptr<Node>> args;
+
   if (check(Type::L_PAREN)) {
     advance();
 
     while (!check(Type::R_PAREN)) {
-      if (!check(Type::IDENT)) {
-        throwError(Type::IDENT);
-      }
-
       args.push_back(parse_expr(0));
 
       if (!check(Type::COMMA) && !check(Type::R_PAREN)) { throwError(Type::R_PAREN); }
       if (check(Type::COMMA)) advance();
     }
 
-    advance();
+    expect(Type::R_PAREN);
   }
   else throwError(Type::L_PAREN);
   
