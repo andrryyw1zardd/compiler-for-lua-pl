@@ -51,10 +51,11 @@ Code Generator
 int main([[maybe_unused]]int argc, char** args) {
   std::string sourceCode;
 
-  std::fstream readFile(args[1]);  // reading first argument 
+  std::fstream readFile(args[1]);  
   std::pmr::string i;
 
-  while (std::getline(readFile, i)) { // reading and adding into sourceCode line by line (NOT char by char)
+  // reading and adding into sourceCode line by line (NOT char by char)
+  while (std::getline(readFile, i)) { 
     sourceCode += i + "\n"; 
   }
 

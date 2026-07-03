@@ -102,7 +102,9 @@ std::unique_ptr<Node> Parser::parse_ident() {
     return std::make_unique<MultipleVariableNode>(Type::EQUAL, std::move(left_side), std::move(right_side));
   }
 
-  if (left_side.size() == 1 && left_side.front()->getName() == "CallNode")
+  if (left_side.size() == 1 && 
+     (left_side.front()->getName() == "FunctionCallNode" || 
+      left_side.front()->getName() == "MethodCallNode"))
     return std::move(left_side.front());
 
   throwError(Type::IDENT);
@@ -226,7 +228,7 @@ std::unique_ptr<Node> Parser::parse_for() {
     expect(Type::KW_IN);
 
     std::unique_ptr<Node> iter_fn = parse_ident();
-    if (!(iter_fn->getName() == "CallNode")) throwError(Type::CALLEDFUNCTION);
+    if (!(iter_fn->getName() == "FunctionCallNode")) throwError(Type::CALLEDFUNCTION);
 
     expect(Type::KW_DO);
 
@@ -458,6 +460,7 @@ int Parser::get_lbp() {
     case Type::NOT:           return 90;
     case Type::DOT:           return 100;
     case Type::L_PAREN:       return 100;
+    case Type::COLON:         return 100;
     default: return 0;
   }
 }
@@ -574,7 +577,29 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
 
       expect(Type::R_PAREN); 
 
-      left = std::make_unique<CallNode>(std::move(left), std::move(args));
+      left = std::make_unique<FunctionCallNode>(std::move(left), std::move(args));
+      continue;
+    }
+
+    if (op == Type::COLON) {
+      advance();
+
+      if (left->getName() != "VariableNode")
+        throwError(Type::IDENT);
+
+      Token method_name = advance();
+
+      std::vector<std::unique_ptr<Node>> args;
+      expect(Type::L_PAREN);
+
+      while (!check(Type::R_PAREN)) {
+        args.push_back(parse_expr(0));
+        if (check(Type::COMMA)) advance();
+      }
+
+      expect(Type::R_PAREN); 
+
+      left = std::make_unique<MethodCallNode>(std::move(method_name), std::move(left), std::move(args));
       continue;
     }
 

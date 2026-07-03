@@ -218,15 +218,28 @@ struct MethodNode : Node {
   }
 };
 
-struct CallNode : Node {
+struct FunctionCallNode : Node {
   std::unique_ptr<Node> callee;
   std::vector<std::unique_ptr<Node>> args;
 
-  CallNode(std::unique_ptr<Node> c, std::vector<std::unique_ptr<Node>> a) 
+  FunctionCallNode(std::unique_ptr<Node> c, std::vector<std::unique_ptr<Node>> a) 
     : callee(std::move(c)), args(std::move(a)) { }
 
   std::string getName() override {
-    return "CallNode";
+    return "FunctionCallNode";
+  }
+};
+
+struct MethodCallNode : Node {
+  Token method_name;
+  std::unique_ptr<Node> object_name;
+  std::vector<std::unique_ptr<Node>> args;
+
+  MethodCallNode(Token m, std::unique_ptr<Node> o, std::vector<std::unique_ptr<Node>> a) 
+  : method_name(std::move(m)), object_name(std::move(o)), args(std::move(a)) {}
+
+  std::string getName() override {
+    return "MethodCallNode";
   }
 };
 
