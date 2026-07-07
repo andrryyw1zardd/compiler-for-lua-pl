@@ -16,7 +16,7 @@
 --------------------------------------------------------------------
 -- 2. Numeric literals
 --------------------------------------------------------------------
-local intLit      = 42
+local intLit       = 42
 local floatLit     = 3.14
 local hexLit       = 0xFF
 local hexFloat     = 0x1p4        -- hex float (16.0)

@@ -1,6 +1,10 @@
 #include <parser.hpp>
 #include <format>
 
+// need to add multiple comment parser, that would skip the whole comment section
+// maybe in lexer.cpp
+// Nesting Comments must be hell
+
 Token Parser::peek() {
   if (index >= listOfTokens.size()) return Token{.type = Type::END_OF_FILE};
   return listOfTokens[index];

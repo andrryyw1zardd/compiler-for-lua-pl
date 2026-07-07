@@ -43,16 +43,57 @@ void Lexer::skipWhiteSpace() {
 Token Lexer::nextToken() {
   skipWhiteSpace();
 
-  // if its comments
   if (peek() == '-' && peekNext() == '-') {
-    while (peek() != '\n' && peek() != '\0') {
-      advance();
-    } 
+    advance(); advance();
 
+    // multiple line comment
+    if (peek() == '[') {
+      int level = 0;
+      int savedX = x;
+
+      advance();
+
+      while (peek() == '=') {
+        level++;
+        advance();
+      }
+
+      if (peek() == '[') {
+        advance();
+
+        while (true) {
+          if (peek() == '\0') return Token{.type = Type::ERROR, .position = {x, y}};
+
+          if (peek() == ']') {
+            int innerLevel = 0;
+            int innerX = x;
+
+            advance();
+
+            while (peek() == '=') {
+              innerLevel++;
+              advance();
+            }
+
+            if (peek() == ']' && level == innerLevel) {
+              advance();
+              return nextToken();
+            }
+
+            continue;
+          }
+
+          advance();
+        }
+      } else { x = savedX; }
+    }
+
+    // single line comment
+    while (peek() != '\n' && peek() != '\0') advance();
     return nextToken();
   }
 
-  // just "eating" it all until operator 
+  // just eating it all until operator 
   std::string value;
   if (std::isalpha(peek()) || peek() == '_') { // this if statment is just for ident to not start from number (123var)
     while (std::isalnum(peek()) || peek() == '_') {
@@ -180,6 +221,7 @@ Token Lexer::nextToken() {
         return Token{.type = type, .position = {x, y}};
 
       default:
+        advance();
         return Token{.type = Type::ERROR, .position = {x, y}};
     }
   }
