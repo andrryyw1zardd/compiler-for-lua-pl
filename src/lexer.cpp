@@ -1,5 +1,4 @@
 #include "lexer.hpp"
-#include <iostream>
 #include <cctype>
 
 char Lexer::peek() {
@@ -114,6 +113,7 @@ Token Lexer::nextToken() {
 
   // just eating it all until operator 
   std::string value;
+
   if (std::isalpha(peek()) || peek() == '_') { // this if statment is just for ident to not start from number (123var)
     while (std::isalnum(peek()) || peek() == '_') {
       value += peek();
@@ -158,8 +158,6 @@ Token Lexer::nextToken() {
     return Token{.type = Type::LIT_HEX, .value = value, .position = {x, y}};
   }
 
-  // for "Local a = 12 - 4" gonna return 12 because of stoi
-  // need to handle e/E position and +/- position
   if (std::isdigit(peek()) || (peek() == '.' && std::isdigit(peekNext()))) {
     std::string value;
     bool isFloat = false;
