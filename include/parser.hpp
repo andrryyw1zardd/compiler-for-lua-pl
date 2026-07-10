@@ -316,6 +316,7 @@ private:
     {Type::LIT_STRING,     "'string literal'"},
     {Type::LIT_FLOAT,      "'float literal'"},
     {Type::END_OF_FILE,    "'end of file'"},
+    {Type::ERROR,          "'ERROR'"},
   };
 
   std::unordered_set<Type> UnaryOpSet = {

@@ -1,4 +1,5 @@
 #include "lexer.hpp"
+#include <iostream>
 #include <cctype>
 
 char Lexer::peek() {
@@ -6,9 +7,19 @@ char Lexer::peek() {
   return sourceCode[index];
 }
 
+char Lexer::peekPast() {
+  if (index >= sourceCode.size()) return '\0';
+  return sourceCode[index-1];
+}
+
 char Lexer::peekNext() {
   if (index+1 >= sourceCode.size()) return '\0';
   return sourceCode[index+1];
+}
+
+char Lexer::peekNextNext() {
+  if (index+1 >= sourceCode.size()) return '\0';
+  return sourceCode[index+2];
 }
 
 char Lexer::advance() {
@@ -146,26 +157,54 @@ Token Lexer::nextToken() {
 
     return Token{.type = Type::LIT_HEX, .value = value, .position = {x, y}};
   }
-  else if (std::isdigit(peek())) {
+
+  // for "Local a = 12 - 4" gonna return 12 because of stoi
+  // need to handle e/E position and +/- position
+  if (std::isdigit(peek()) || (peek() == '.' && std::isdigit(peekNext()))) {
     std::string value;
     bool isFloat = false;
+    bool seenDot = false;
+    bool seenExp = false;
 
-    while (std::isdigit((unsigned char)peek())) {
-      value += advance();
-    }
+    while (std::isdigit(peek()) || (peek() == 'e' || peek() == 'E') || peek() == '.' || (peek() == '+' || peek() == '-')) {
+      if (std::isdigit(peek())) {
+        value += advance();
+        continue;
+      }
+      else if (peek() == '.') {
+        if (!seenDot && !seenExp) {
+          seenDot = true;
 
-    if (peek() == '.') {
-      isFloat = true;
-      value += peek();
-      advance();
+          value += advance();
+          continue;
+        }
 
-      while (std::isdigit((unsigned char)peek())) {
-        value += peek();
-        advance();
+        return Token{.type = Type::ERROR, .position = {x, y}};
+      }
+      else if ((peek() == 'e' || peek() == 'E')) {
+        if (std::isdigit(peekNext()) || ((peekNext() == '+' || peekNext() == '-') && std::isdigit(peekNextNext()))) {
+          seenExp = true;
+
+          value += advance();
+          continue;
+        }
+
+        return Token{.type = Type::ERROR, .position = {x, y}};
+      }
+
+      else if (peek() == '-' || peek() == '+') {
+        if (peekPast() == 'e' || peekPast() == 'E') {
+          value += advance();
+          continue;
+        }
+
+        return Token{.type = Type::ERROR, .position = {x, y}};
       }
     }
 
     // converting and returning value
+    isFloat = seenDot || seenExp;
+
     if (isFloat) { 
       return Token{.type = Type::LIT_FLOAT, .value = std::stof(value), .position = {x, y}};
     } else { 

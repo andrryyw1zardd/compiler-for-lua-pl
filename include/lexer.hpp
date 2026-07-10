@@ -91,7 +91,9 @@ private:
                           '5', '6', '7', '8', '9'};
 
   char peek(); 
+  char peekPast();
   char peekNext(); 
+  char peekNextNext(); 
   char advance(); 
   bool match(char expected); 
   bool isComment(); 
