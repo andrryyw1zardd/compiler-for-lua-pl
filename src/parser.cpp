@@ -1,10 +1,6 @@
 #include <parser.hpp>
 #include <format>
 
-// need to add multiple comment parser, that would skip the whole comment section
-// maybe in lexer.cpp
-// Nesting Comments must be hell
-
 Token Parser::peek() {
   if (index >= listOfTokens.size()) return Token{.type = Type::END_OF_FILE};
   return listOfTokens[index];
@@ -471,7 +467,7 @@ int Parser::get_lbp() {
 
 std::unique_ptr<Node> Parser::nud() {
   if (check(Type::LIT_INT) || check(Type::LIT_FLOAT) || check(Type::LIT_STRING)
-      || check(Type::KW_TRUE) || check(Type::KW_FALSE))
+      || check(Type::KW_TRUE) || check(Type::KW_FALSE) || check(Type::LIT_HEX))
   {
     Token value = peek();
     advance();

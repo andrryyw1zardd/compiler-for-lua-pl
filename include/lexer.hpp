@@ -14,7 +14,7 @@ enum class Type {
   KW_TRUE, KW_FALSE, KW_AND, KW_OR, KW_NOT, KW_IN,
 
   LIT_INT, // Literals
-  LIT_FLOAT, LIT_STRING,
+  LIT_FLOAT, LIT_STRING, LIT_HEX,
 
   IDENT, CALLEDFUNCTION, // Identificator
   
@@ -94,6 +94,7 @@ private:
   char peekNext(); 
   char advance(); 
   bool match(char expected); 
+  bool isComment(); 
   void skipWhiteSpace(); 
 
 public:

@@ -10,6 +10,7 @@
   spans several lines
 ]]
 --[==[
+--[===[ ]===]
   long comment with a custom level (in case ]] appears inside)
 ]==]
 

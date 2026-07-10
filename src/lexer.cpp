@@ -31,6 +31,14 @@ bool Lexer::match(char expected) {
   return true;
 }
 
+bool Lexer::isComment() {
+  if (peek() == '-' && peekNext() == '-') {
+    return true;
+  }
+
+  return false;
+}
+
 void Lexer::skipWhiteSpace() {
   while (index < sourceCode.size()) {
     char c = peek();
@@ -129,13 +137,21 @@ Token Lexer::nextToken() {
   }
 
   // checking if its a number (int/float)
-  if (std::isdigit(peek())) {
+  if (peek() == '0' && (peekNext() == 'x' || peekNext() == 'b' || peekNext() == 'o')) {
+    std::string value;
+
+    while (peek() != '\n' && !isComment()) {
+      value += advance();
+    }
+
+    return Token{.type = Type::LIT_HEX, .value = value, .position = {x, y}};
+  }
+  else if (std::isdigit(peek())) {
     std::string value;
     bool isFloat = false;
 
     while (std::isdigit((unsigned char)peek())) {
-      value += peek();
-      advance();
+      value += advance();
     }
 
     if (peek() == '.') {
