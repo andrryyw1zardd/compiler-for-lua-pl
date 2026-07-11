@@ -68,6 +68,7 @@ Token Lexer::nextToken() {
     if (peek() == '[') {
       int level = 0;
       int savedX = x;
+      int savedY = y;
 
       advance();
 
@@ -84,7 +85,6 @@ Token Lexer::nextToken() {
 
           if (peek() == ']') {
             int innerLevel = 0;
-            int innerX = x;
 
             advance();
 
@@ -103,7 +103,10 @@ Token Lexer::nextToken() {
 
           advance();
         }
-      } else { x = savedX; }
+      } else { 
+        x = savedX; 
+        y = savedY;
+      }
     }
 
     // single line comment
@@ -114,7 +117,8 @@ Token Lexer::nextToken() {
   // just eating it all until operator 
   std::string value;
 
-  if (std::isalpha(peek()) || peek() == '_') { // this if statment is just for ident to not start from number (123var)
+ // this statment is just for ident to not begin from number (123var)
+ if (std::isalpha(peek()) || peek() == '_') { 
     while (std::isalnum(peek()) || peek() == '_') {
       value += peek();
       advance();
@@ -132,22 +136,37 @@ Token Lexer::nextToken() {
     else return Token{.type = Type::IDENT, .value = value, .position = {x, y}};
   }
 
-  // string check 
-  if (peek() == '"') {
-    advance();
+  { // string check 
+    if (peek() == '"') {
+      advance();
 
-    while (peek() != '"' && peek() != '\0') {
-      value += peek();
+      while (peek() != '"' && peek() != '\0') {
+        value += advance();
+      }
       advance();
     }
-    advance();
+    
+    if (value != "") {
+        return Token{.type = Type::LIT_STRING, .value = value, .position = {x, y}};
+    }
   }
 
-  if (value != "") {
-      return Token{.type = Type::LIT_STRING, .value = value, .position = {x, y}};
+  { // single quoted string check
+    if (peek() == '\'') {
+      advance();
+
+      while (peek() != '\'' && peek() != '\0') {
+        value += advance();
+      }
+      advance();
+    }
+
+    if (value != "") {
+        return Token{.type = Type::LIT_CHAR, .value = value, .position = {x, y}};
+    }
   }
 
-  // checking if its a number (int/float)
+  // checking for hex literals
   if (peek() == '0' && (peekNext() == 'x' || peekNext() == 'b' || peekNext() == 'o')) {
     std::string value;
 
@@ -158,6 +177,7 @@ Token Lexer::nextToken() {
     return Token{.type = Type::LIT_HEX, .value = value, .position = {x, y}};
   }
 
+ // checking for numeric literals (both int and float), but also numbers with exponent
   if (std::isdigit(peek()) || (peek() == '.' && std::isdigit(peekNext()))) {
     std::string value;
     bool isFloat = false;

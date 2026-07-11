@@ -14,7 +14,7 @@ enum class Type {
   KW_TRUE, KW_FALSE, KW_AND, KW_OR, KW_NOT, KW_IN,
 
   LIT_INT, // Literals
-  LIT_FLOAT, LIT_STRING, LIT_HEX,
+  LIT_FLOAT, LIT_STRING, LIT_HEX, LIT_CHAR,
 
   IDENT, CALLEDFUNCTION, // Identificator
   
