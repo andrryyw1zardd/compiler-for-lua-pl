@@ -14,7 +14,8 @@ enum class Type {
   KW_TRUE, KW_FALSE, KW_AND, KW_OR, KW_NOT, KW_IN,
 
   LIT_INT, // Literals
-  LIT_FLOAT, LIT_STRING, LIT_HEX, LIT_CHAR,
+  LIT_FLOAT, LIT_STRING,
+  LIT_HEX, LIT_CHAR, LIT_LONG_STRING,
 
   IDENT, CALLEDFUNCTION, // Identificator
   
@@ -98,6 +99,7 @@ private:
   bool match(char expected); 
   bool isComment(); 
   void skipWhiteSpace(); 
+  void throwError(std::string reason);
 
 public:
   Lexer(std::string source) : sourceCode(source), index(0), x(1), y(1) {}

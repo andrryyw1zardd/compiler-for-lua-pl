@@ -1,5 +1,6 @@
 #include "lexer.hpp"
 #include <cctype>
+#include <format>
 
 char Lexer::peek() {
   if (index >= sourceCode.size()) return '\0';
@@ -58,10 +59,17 @@ void Lexer::skipWhiteSpace() {
   }
 }
 
+void Lexer::throwError(std::string reason) {
+  throw std::runtime_error(
+    std::format("Runtime Error at line {} col {}\n Reason: {}", 
+                y, x, reason)
+  );
+}
+
 Token Lexer::nextToken() {
   skipWhiteSpace();
 
-  if (peek() == '-' && peekNext() == '-') {
+  if (isComment()) {
     advance(); advance();
 
     // multiple line comment
@@ -81,7 +89,7 @@ Token Lexer::nextToken() {
         advance();
 
         while (true) {
-          if (peek() == '\0') return Token{.type = Type::ERROR, .position = {x, y}};
+          if (peek() == '\0') throwError("Didnt close the comment");
 
           if (peek() == ']') {
             int innerLevel = 0;
@@ -143,6 +151,7 @@ Token Lexer::nextToken() {
       while (peek() != '"' && peek() != '\0') {
         value += advance();
       }
+      if (peek() == '\0') throwError("Unterminated string");
       advance();
     }
     
@@ -158,6 +167,7 @@ Token Lexer::nextToken() {
       while (peek() != '\'' && peek() != '\0') {
         value += advance();
       }
+      if (peek() == '\0') throwError("Unterminated char literal");
       advance();
     }
 
@@ -166,11 +176,60 @@ Token Lexer::nextToken() {
     }
   }
 
+  { // long string check
+    if (peek() == '[') {
+      int level = 0;
+      int savedX = x;
+      int savedY = y;
+
+      advance(); 
+
+      while (peek() == '=') {
+        level++;
+        advance();
+      }
+
+      if (peek() == '[') {
+        advance();
+
+        while (true) {
+          if (peek() == '\0') throwError("Didn't close the long string quotes aka ]]"); 
+
+          if (peek() == ']') {
+            int innerLevel = 0;
+
+            advance(); 
+
+            while (peek() == '=') {
+              innerLevel++;
+              advance();
+            }
+
+            if (peek() == ']' && level == innerLevel) {
+              advance();
+              return Token{.type = Type::LIT_LONG_STRING, .value = value, .position = {x, y}};
+            }
+
+            value += ']';
+            value += std::string(innerLevel, '=');
+            continue;
+          }
+
+          value += advance();
+        }
+      } else {
+        if (level != 0) throwError("wrong use of long string quotes");
+        x = savedX;
+        y = savedY;
+      }
+    }
+  }
+
   // checking for hex literals
   if (peek() == '0' && (peekNext() == 'x' || peekNext() == 'b' || peekNext() == 'o')) {
     std::string value;
 
-    while (peek() != '\n' && !isComment()) {
+    while (peek() != '\n' && peek() != '\0' && !isComment()) {
       value += advance();
     }
 
