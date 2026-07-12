@@ -43,8 +43,8 @@ struct Token {
 class Lexer {
 private:
   std::string sourceCode;
-  unsigned long long int index = 0;
-  int x = 1, y = 1;
+  unsigned long long int index;
+  int x, y;
 
   std::unordered_map<char, Type> operationMap = {
     {'+', Type::PLUS},

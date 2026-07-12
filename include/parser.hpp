@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <memory>
 #include <unordered_set>
+#include <string_view>
 
 #ifndef PARSER_HPP
 #define PARSER_HPP
@@ -10,7 +11,7 @@ struct Node {
   Vect2 position;
 
   virtual ~Node() = default;
-  virtual std::string getName() = 0;
+  virtual std::string_view getName() const = 0;
 };
 
 struct UnaryOpNode : Node {
@@ -20,7 +21,7 @@ struct UnaryOpNode : Node {
   UnaryOpNode(Token o, std::unique_ptr<Node> v)
   : op(std::move(o)), value(std::move(v)) {}
 
-  std::string getName() {
+  std::string_view getName() const override {
     return "UnaryOpNode";
   }
 };
@@ -34,7 +35,7 @@ struct BinaryOpNode : Node {
   BinaryOpNode(Type op, std::unique_ptr<Node> l, std::unique_ptr<Node> r) 
     : op(op), left(std::move(l)), right(std::move(r)) { }
 
-  std::string getName() override {
+  std::string_view getName() const override {
     return "BinaryOpNode";
   }
 };
@@ -46,7 +47,7 @@ struct MemberAccessNode : Node {
   MemberAccessNode(std::unique_ptr<Node> v, Token q) 
     : value(std::move(v)), qualifier(std::move(q)) { }
 
-  std::string getName() override {
+  std::string_view getName() const override {
     return "MemberAccessNode";
   }
 };
@@ -56,7 +57,7 @@ struct BasicDataNode : Node {
 
   BasicDataNode(Token v) : value(std::move(v)) { }
 
-  std::string getName() override {
+  std::string_view getName() const override {
     return "BasicDataNode";
   }
 };
@@ -64,9 +65,9 @@ struct BasicDataNode : Node {
 struct VariableNode : Node {
   Token value;
 
-  VariableNode(Token v) : value(v) { }
+  VariableNode(Token v) : value(std::move(v)) { }
 
-  std::string getName() override {
+  std::string_view getName() const override {
     return "VariableNode";
   }
 };
@@ -79,7 +80,7 @@ struct DefineVariableNode : Node {
   DefineVariableNode(Token v, std::unique_ptr<Node> r)
     : value(std::move(v)), right(std::move(r)) { }  
 
-  std::string getName() override {
+  std::string_view getName() const override {
     return "DefineVariableNode";
   }
 };
@@ -92,7 +93,7 @@ struct MultipleVariableNode : Node {
   MultipleVariableNode(Type op, std::vector<std::unique_ptr<Node>> ls, std::vector<std::unique_ptr<Node>> rs)
     : op(std::move(op)), left_side(std::move(ls)), right_side(std::move(rs)) { }
 
-  std::string getName() {
+  std::string_view getName() const override {
     return "MultipleVariableNode";
   }
 };
@@ -102,7 +103,7 @@ struct ArrayNode : Node {
 
   ArrayNode(std::vector<std::unique_ptr<Node>> e) : elements(std::move(e)) { }
 
-  std::string getName() {
+  std::string_view getName() const override {
     return "ArrayNode";
   }
 };
@@ -113,7 +114,7 @@ struct TableFieldNode : Node {
 
   TableFieldNode(Token k, std::unique_ptr<Node> v) : key(std::move(k)), value(std::move(v)) {}
 
-  std::string getName() { 
+  std::string_view getName() const override {
     return "TableFieldNode"; 
   }
 };
@@ -128,7 +129,7 @@ struct IfNode : Node {
          std::vector<std::unique_ptr<Node>> ei, std::vector<std::unique_ptr<Node>> eb)
     : condition(std::move(c)), body(std::move(b)), elseifs(std::move(ei)), elseBody(std::move(eb)){ };
 
-  std::string getName() override {
+  std::string_view getName() const override {
     return "IfNode";
   }
 };
@@ -140,7 +141,7 @@ struct ElseIfNode : Node {
   ElseIfNode(std::unique_ptr<Node> c, std::vector<std::unique_ptr<Node>> b) 
     : condition(std::move(c)), body(std::move(b)) { };
 
-  std::string getName() override {
+  std::string_view getName() const override {
     return "ElseIfNode";
   }
 };
@@ -152,7 +153,7 @@ struct WhileNode : Node {
   WhileNode(std::unique_ptr<Node> c, std::vector<std::unique_ptr<Node>> b) 
     : condition(std::move(c)), body(std::move(b)) { } 
 
-  std::string getName() override {
+  std::string_view getName() const override {
     return "WhileNode";
   }
 };
@@ -168,7 +169,7 @@ struct NumericForNode : Node {
           std::unique_ptr<Node> st, std::vector<std::unique_ptr<Node>> b) 
   : var(std::move(v)), start(std::move(s)), finish(std::move(f)), step(std::move(st)), body(std::move(b)) { }
 
-  std::string getName() override {
+  std::string_view getName() const override {
     return "NumericForNode";
   }
 };
@@ -182,8 +183,20 @@ struct GenericForNode : Node {
   GenericForNode(std::vector<Token> ka, std::unique_ptr<Node> f, std::vector<std::unique_ptr<Node>> b) 
   : keyArgs(std::move(ka)), fn(std::move(f)), body(std::move(b)) {}
 
-  std::string getName() override {
+  std::string_view getName() const override {
     return "GenericForNode";
+  }
+};
+
+struct RepeatUntilNode : Node {
+  std::unique_ptr<Node> condition;
+  std::vector<std::unique_ptr<Node>> body;
+
+  RepeatUntilNode(std::unique_ptr<Node> c, std::vector<std::unique_ptr<Node>> b) 
+    : condition(std::move(c)), body(std::move(b)) { } 
+
+  std::string_view getName() const override {
+    return "RepeatUntilNode";
   }
 };
 
@@ -197,7 +210,7 @@ struct FunctionNode : Node {
   FunctionNode(Token v, bool isL, std::vector<std::unique_ptr<Node>> a, std::vector<std::unique_ptr<Node>> b)
   : value(std::move(v)), isLocal(isL), args(std::move(a)), body(std::move(b)) {}
   
-  std::string getName() override {
+  std::string_view getName() const override {
     return "FunctionNode";
   }
 };
@@ -213,7 +226,7 @@ struct MethodNode : Node {
   MethodNode(Token v, Token cn, bool isL, std::vector<std::unique_ptr<Node>> a, std::vector<std::unique_ptr<Node>> b)
   : value(std::move(v)), className(std::move(cn)), isLocal(isL), args(std::move(a)), body(std::move(b)) {}
 
-  std::string getName() override {
+  std::string_view getName() const override {
     return "MethodNode";
   }
 };
@@ -225,7 +238,7 @@ struct FunctionCallNode : Node {
   FunctionCallNode(std::unique_ptr<Node> c, std::vector<std::unique_ptr<Node>> a) 
     : callee(std::move(c)), args(std::move(a)) { }
 
-  std::string getName() override {
+  std::string_view getName() const override {
     return "FunctionCallNode";
   }
 };
@@ -238,7 +251,7 @@ struct MethodCallNode : Node {
   MethodCallNode(Token m, std::unique_ptr<Node> o, std::vector<std::unique_ptr<Node>> a) 
   : method_name(std::move(m)), object_name(std::move(o)), args(std::move(a)) {}
 
-  std::string getName() override {
+  std::string_view getName() const override {
     return "MethodCallNode";
   }
 };
@@ -248,7 +261,7 @@ struct ReturnNode : Node {
 
   ReturnNode(std::vector<std::unique_ptr<Node>> a) : args(std::move(a)) { }
 
-  std::string getName() override {
+  std::string_view getName() const override {
     return "ReturnNode";
   }
 };
@@ -340,6 +353,7 @@ private:
   std::unique_ptr<Node> parse_elseif();
   std::unique_ptr<Node> parse_while();
   std::unique_ptr<Node> parse_for();
+  std::unique_ptr<Node> parse_repeat();
   std::unique_ptr<Node> parse_return();
   std::unique_ptr<Node> parse_local();
   std::unique_ptr<Node> parse_function(bool isLocal);

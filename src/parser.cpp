@@ -263,7 +263,6 @@ std::unique_ptr<Node> Parser::parse_for() {
   );
 }
 
-
 std::unique_ptr<Node> Parser::parse_if() {
   advance();
 
@@ -301,14 +300,26 @@ std::unique_ptr<Node> Parser::parse_elseif() {
 
   std::unique_ptr<Node> condition = parse_expr(0);
 
-  if (check(Type::KW_THEN)) {
-    advance();
-  } else throwError(Type::KW_THEN);
+  expect(Type::KW_THEN);
 
   std::vector<std::unique_ptr<Node>> body = parse_block(); 
 
   return std::make_unique<ElseIfNode>(
     std::move(condition),
+    std::move(body)
+  );
+}
+
+std::unique_ptr<Node> Parser::parse_repeat() {
+  advance();
+  std::vector<std::unique_ptr<Node>> body = parse_block();
+
+  expect(Type::KW_UNTIL);
+
+  std::unique_ptr<Node> condition = parse_expr(0);
+
+  return std::make_unique<RepeatUntilNode>(
+    std::move(condition), 
     std::move(body)
   );
 }
@@ -433,6 +444,9 @@ std::unique_ptr<Node> Parser::parse_stat() {
       break;
     case Type::KW_RETURN:
       return parse_return();
+      break;
+    case Type::KW_REPEAT:
+      return parse_repeat();
       break;
     default:
       return parse_expr(0); 
