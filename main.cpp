@@ -7,7 +7,6 @@ Lexer (Scanner / Tokenizer)
     For example, it identifies KEYWORDS (like int), IDENTIFIERS (variable names), and SYMBOLS (like + or {).
 }
 
-// DONE 
 Parser 
 {
     The parser takes the stream of tokens and organizes them into a tree structure called an
