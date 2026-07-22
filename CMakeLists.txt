@@ -8,8 +8,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_executable(
   lua++
   main.cpp
-  src/lexer.cpp
-  src/parser.cpp
+  src/lexer/lexer.cpp
+  src/parser/parser.cpp
 )
 
 target_include_directories(lua++ PRIVATE include)

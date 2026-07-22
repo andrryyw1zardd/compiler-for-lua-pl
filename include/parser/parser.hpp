@@ -1,4 +1,4 @@
-#include <lexer.hpp>
+#include <lexer/lexer.hpp>
 #include <stdbool.h>
 #include <memory>
 #include <unordered_set>

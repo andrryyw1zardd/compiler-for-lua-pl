@@ -42,11 +42,11 @@ Code Generator
     typically assembly code or machine code—for a specific processor.
 }
 ------------------------------------------------------------------------------------------------------------- */
-#include <fstream>         // INCLUDED FOR std::fstream, readFile() 
-#include <string>          // INCLUDED FOR std::pmr::string, std::getline()
-#include <vector>          // INCLUDED FOR std::vector<Token>
-#include "lexer.hpp"       // INCLUDED FOR class Lexer, tokenize() 
-#include "parser.hpp"      // INCLUDED FOR class Parser, parse_block()
+#include <fstream>            // INCLUDED FOR std::fstream, readFile() 
+#include <string>             // INCLUDED FOR std::pmr::string, std::getline()
+#include <vector>             // INCLUDED FOR std::vector<Token>
+#include "lexer/lexer.hpp"    // INCLUDED FOR class Lexer, tokenize() 
+#include "parser/parser.hpp"  // INCLUDED FOR class Parser, parse_block()
 
 int main([[maybe_unused]]int argc, char** args) {
   std::string sourceCode;

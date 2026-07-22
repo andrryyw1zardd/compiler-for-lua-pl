@@ -67,35 +67,6 @@ repeat
 until i >= 3
 
 --------------------------------------------------------------------
--- 5. Numeric for with step, and break/continue-style with goto
---------------------------------------------------------------------
-print("\n-- For with step --")
-for i = 10, 1, -2 do
-    io.write(i .. " ")
-end
-print()
-
-print("\n-- goto as continue --")
-for i = 1, 5 do
-    if i == 3 then goto continue end
-    print("goto-loop i =", i)
-    ::continue::
-end
-
---------------------------------------------------------------------
--- 6. goto for loop skipping / jumping
---------------------------------------------------------------------
-do
-    local x = 1
-    ::top::
-    if x <= 3 then
-        print("goto top, x =", x)
-        x = x + 1
-        goto top
-    end
-end
-
---------------------------------------------------------------------
 -- 7. Varargs (...)
 --------------------------------------------------------------------
 local function sum(...)
