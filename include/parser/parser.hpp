@@ -316,6 +316,7 @@ private:
     {Type::COLON,          "':'"},
     {Type::COLON_COLON,    "'::'"},
     {Type::EQUAL,          "'='"},
+    {Type::ELLIPSIS,       "'...'"},
     {Type::EQUAL_EQUAL,    "'=='"},
     {Type::NOT_EQUAL,      "'!='"},
     {Type::LESS,           "'<'"},

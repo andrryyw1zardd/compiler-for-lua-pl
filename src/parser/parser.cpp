@@ -482,7 +482,7 @@ int Parser::get_lbp() {
 std::unique_ptr<Node> Parser::nud() {
   if (check(Type::LIT_INT) || check(Type::LIT_FLOAT) || check(Type::LIT_STRING)
     || check(Type::KW_TRUE) || check(Type::KW_FALSE) || check(Type::LIT_LONG_STRING)
-    || check(Type::LIT_HEX) || check(Type::LIT_CHAR)
+    || check(Type::LIT_HEX) || check(Type::LIT_CHAR) || check(Type::ELLIPSIS)
   ) {
     Token value = peek();
     advance();

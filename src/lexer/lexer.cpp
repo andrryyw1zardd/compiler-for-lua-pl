@@ -337,8 +337,15 @@ Token Lexer::nextToken() {
 
       case '.':
         advance();
-        if (match('.')) type = Type::CONCAT;
-        else type = Type::DOT;
+        type = Type::DOT;
+        if (peek() == '.' && peekNext() == '.') {
+          advance(); advance();
+          type = Type::ELLIPSIS;
+        }
+        if (peek() == '.') {
+          advance();
+          type = Type::CONCAT;
+        }
         return Token{.type = type, .position = {x, y}};
 
       case '|':
