@@ -177,6 +177,7 @@ std::unique_ptr<Node> Parser::parse_local() {
 
     return std::make_unique<DefineVariableNode>( std::move(name), std::move(expr) );
   }
+  else advance();
 
   return std::make_unique<DefineVariableNode>( std::move(name), std::move(expr) );
 }
@@ -211,18 +212,13 @@ std::unique_ptr<Node> Parser::parse_for() {
 
   advance();
 
-  if (check(Type::COMMA)) {
+  if (check(Type::COMMA) || check(Type::KW_IN)) {
     std::vector<Token> keyArgs;
     keyArgs.push_back(var);
 
-    while (!check(Type::KW_IN)) {
+    while (check(Type::COMMA)) {
+      advance();
       keyArgs.push_back(advance());
-
-      if (check(Type::COMMA)) {
-        advance();
-
-        if (!check(Type::IDENT)) throwError(Type::IDENT);
-      }
     }
 
     expect(Type::KW_IN);
@@ -400,6 +396,29 @@ std::unique_ptr<Node> Parser::parse_return() {
   std::vector<std::unique_ptr<Node>> args;
 
   while (!endblock()) {
+    if (check(Type::KW_FUNCTION)) {
+      advance();
+      expect(Type::L_PAREN);
+
+      std::vector<std::unique_ptr<Node>> innerArgs;
+
+      while (!check(Type::R_PAREN)) {
+        innerArgs.push_back(parse_expr(0));
+
+        if (!check(Type::COMMA) && !check(Type::R_PAREN)) { throwError(Type::R_PAREN); }
+        if (check(Type::COMMA)) advance();
+      }
+
+      expect(Type::R_PAREN);
+
+      std::vector<std::unique_ptr<Node>> body = parse_block();
+      expect(Type::KW_END);
+
+      return std::make_unique<AnonFunction>(
+        std::move(innerArgs), std::move(body)
+      );
+    }
+
     args.push_back(parse_expr(0));
 
     if (check(Type::COMMA)) advance();
@@ -530,6 +549,28 @@ std::unique_ptr<Node> Parser::nud() {
 
     return std::make_unique<VariableNode>(std::move(value));
   }
+  else if (check(Type::KW_FUNCTION)) {
+    advance();
+    expect(Type::L_PAREN);
+
+    std::vector<std::unique_ptr<Node>> innerArgs;
+
+    while (!check(Type::R_PAREN)) {
+      innerArgs.push_back(parse_expr(0));
+
+      if (!check(Type::COMMA) && !check(Type::R_PAREN)) { throwError(Type::R_PAREN); }
+      if (check(Type::COMMA)) advance();
+    }
+
+    expect(Type::R_PAREN);
+
+    std::vector<std::unique_ptr<Node>> body = parse_block();
+    expect(Type::KW_END);
+
+    return std::make_unique<AnonFunction>(
+      std::move(innerArgs), std::move(body)
+    );
+  }
 
   throwError(Type::IDENT);
 }
@@ -598,10 +639,6 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
 
     if (op == Type::COLON) {
       advance();
-
-      if (left->getName() != "VariableNode")
-        throwError(Type::IDENT);
-
       Token method_name = advance();
 
       std::vector<std::unique_ptr<Node>> args;

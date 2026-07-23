@@ -215,6 +215,18 @@ struct FunctionNode : Node {
   }
 };
 
+struct AnonFunction : Node {
+  std::vector<std::unique_ptr<Node>> args;
+  std::vector<std::unique_ptr<Node>> body;
+
+  AnonFunction(std::vector<std::unique_ptr<Node>> a, std::vector<std::unique_ptr<Node>> b) 
+  : args(std::move(a)), body(std::move(b)) { }
+
+  std::string_view getName() const override {
+    return "AnonFunction";
+  }
+};
+
 struct MethodNode : Node {
   Token value;
   Token className;
