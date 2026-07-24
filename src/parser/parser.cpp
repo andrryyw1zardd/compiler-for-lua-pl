@@ -495,6 +495,8 @@ int Parser::get_lbp() {
     case Type::L_PAREN:       return 100;
     case Type::L_BRACKET:     return 100;
     case Type::COLON:         return 100;
+    case Type::KW_OR:         return 110;
+    case Type::KW_AND:        return 120;
     default: return 0;
   }
 }
@@ -672,6 +674,28 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
       left = std::make_unique<IndexNode>(
         std::move(left),
         std::move(index_expr)
+      );
+      continue;
+    }
+
+    if (op == Type::KW_AND) {
+      advance();
+      auto right = parse_expr(lbp);
+
+      left = std::make_unique<AndTernaryNode>(
+        std::move(left),
+        std::move(right)
+      );
+      continue;
+    }
+
+    if (op == Type::KW_OR) {
+      advance();
+      auto right = parse_expr(lbp);
+
+      left = std::make_unique<OrTernaryNode>(
+        std::move(left),
+        std::move(right)
       );
       continue;
     }

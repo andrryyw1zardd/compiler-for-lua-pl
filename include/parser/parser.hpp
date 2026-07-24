@@ -26,6 +26,30 @@ struct UnaryOpNode : Node {
   }
 };
 
+struct AndTernaryNode : Node {
+  std::unique_ptr<Node> left;
+  std::unique_ptr<Node> right;
+
+  AndTernaryNode(std::unique_ptr<Node> l, std::unique_ptr<Node> r) 
+  : left(std::move(l)), right(std::move(r)) { }
+
+  std::string_view getName() const override {
+    return "AndTernaryNode";
+  }
+};
+
+struct OrTernaryNode : Node {
+  std::unique_ptr<Node> left;
+  std::unique_ptr<Node> right;
+
+  OrTernaryNode(std::unique_ptr<Node> l, std::unique_ptr<Node> r) 
+  : left(std::move(l)), right(std::move(r)) { }
+
+  std::string_view getName() const override {
+    return "OrTernaryNode";
+  }
+};
+
 struct BinaryOpNode : Node {
   Type op;
 
