@@ -108,6 +108,18 @@ struct ArrayNode : Node {
   }
 };
 
+struct IndexNode : Node {
+  std::unique_ptr<Node> left;
+  std::unique_ptr<Node> index_expr;
+
+  IndexNode(std::unique_ptr<Node> l, std::unique_ptr<Node> ie) 
+  : left(std::move(l)), index_expr(std::move(ie)) { }
+
+  std::string_view getName() const override {
+    return "IndexNode";
+  }
+};
+
 struct TableFieldNode : Node {
   Token key;
   std::unique_ptr<Node> value;

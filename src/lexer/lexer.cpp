@@ -77,6 +77,7 @@ Token Lexer::nextToken() {
       int level = 0;
       int savedX = x;
       int savedY = y;
+      int savedIndex = index;
 
       advance();
 
@@ -114,6 +115,7 @@ Token Lexer::nextToken() {
       } else { 
         x = savedX; 
         y = savedY;
+        index = savedIndex;
       }
     }
 
@@ -181,6 +183,7 @@ Token Lexer::nextToken() {
       int level = 0;
       int savedX = x;
       int savedY = y;
+      int savedIndex = index;
 
       advance(); 
 
@@ -221,6 +224,7 @@ Token Lexer::nextToken() {
         if (level != 0) throwError("wrong use of long string quotes");
         x = savedX;
         y = savedY;
+        index = savedIndex;
       }
     }
   }

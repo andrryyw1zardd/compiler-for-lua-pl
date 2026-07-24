@@ -493,6 +493,7 @@ int Parser::get_lbp() {
     case Type::NOT:           return 90;
     case Type::DOT:           return 100;
     case Type::L_PAREN:       return 100;
+    case Type::L_BRACKET:     return 100;
     case Type::COLON:         return 100;
     default: return 0;
   }
@@ -633,7 +634,10 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
 
       expect(Type::R_PAREN); 
 
-      left = std::make_unique<FunctionCallNode>(std::move(left), std::move(args));
+      left = std::make_unique<FunctionCallNode>(
+        std::move(left),
+        std::move(args)
+      );
       continue;
     }
 
@@ -651,7 +655,24 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
 
       expect(Type::R_PAREN); 
 
-      left = std::make_unique<MethodCallNode>(std::move(method_name), std::move(left), std::move(args));
+      left = std::make_unique<MethodCallNode>(
+        std::move(method_name), 
+        std::move(left),
+        std::move(args)
+      );
+      continue;
+    }
+
+    if (op == Type::L_BRACKET) {
+      advance();
+
+      auto index_expr = parse_expr(0);
+      expect(Type::R_BRACKET);
+
+      left = std::make_unique<IndexNode>(
+        std::move(left),
+        std::move(index_expr)
+      );
       continue;
     }
 
