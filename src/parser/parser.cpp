@@ -5,6 +5,7 @@
 
 Token Parser::peek() {
   if (index >= listOfTokens.size()) return Token{.type = Type::END_OF_FILE};
+
   return listOfTokens[index];
 }
 
@@ -479,6 +480,8 @@ int Parser::get_lbp() {
   switch (peek().type) {
     case Type::VERTICAL_BAR:  return 20;
     case Type::AMPERSAND:     return 30;
+    case Type::PERCENT:       return 30;
+    case Type::DOUBLE_SLASH:  return 30;
     case Type::TILDE:         return 30;
     case Type::EQUAL_EQUAL:   return 40;
     case Type::NOT_EQUAL:     return 40;

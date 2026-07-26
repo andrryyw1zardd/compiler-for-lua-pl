@@ -1,7 +1,6 @@
 #include <lexer/lexer.hpp>
 #include <stdbool.h>
 #include <memory>
-#include <unordered_set>
 #include <string_view>
 #include <array>
 
