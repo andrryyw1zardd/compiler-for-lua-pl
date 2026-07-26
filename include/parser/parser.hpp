@@ -3,6 +3,7 @@
 #include <memory>
 #include <unordered_set>
 #include <string_view>
+#include <array>
 
 #ifndef PARSER_HPP
 #define PARSER_HPP
@@ -57,10 +58,24 @@ struct BinaryOpNode : Node {
   std::unique_ptr<Node> right;
 
   BinaryOpNode(Type op, std::unique_ptr<Node> l, std::unique_ptr<Node> r) 
-    : op(op), left(std::move(l)), right(std::move(r)) { }
+    : op(std::move(op)), left(std::move(l)), right(std::move(r)) { }
 
   std::string_view getName() const override {
     return "BinaryOpNode";
+  }
+};
+
+struct BitwiseNode : Node {
+  Type op;
+
+  std::unique_ptr<Node> left;
+  std::unique_ptr<Node> right;
+
+  BitwiseNode(Type op, std::unique_ptr<Node> l, std::unique_ptr<Node> r) 
+    : op(std::move(op)), left(std::move(l)), right(std::move(r)) { }
+
+  std::string_view getName() const override {
+    return "BitwiseNode";
   }
 };
 
@@ -141,6 +156,18 @@ struct IndexNode : Node {
 
   std::string_view getName() const override {
     return "IndexNode";
+  }
+};
+
+struct XORNode : Node {
+  std::unique_ptr<Node> left;
+  std::unique_ptr<Node> right;
+
+  XORNode(std::unique_ptr<Node> l, std::unique_ptr<Node> r) 
+  : left(std::move(l)), right(std::move(r)) { }
+
+  std::string_view getName() const override {
+    return "XORNode";
   }
 };
 
@@ -318,79 +345,43 @@ class Parser {
 private:
   std::vector<Token> listOfTokens;
   unsigned long long index = 0;
-  Type endblockArray[5] = {Type::KW_END, Type::KW_ELSE,
+
+  static constexpr Type endblockArray[5] = {Type::KW_END, Type::KW_ELSE,
                           Type::KW_ELSEIF, Type::KW_UNTIL,
                           Type::END_OF_FILE};
 
-  std::unordered_map<Type, std::string> TokenToStrMAP = {
-    {Type::KW_IF,          "'if'"},
-    {Type::KW_ELSEIF,      "'else if'"},
-    {Type::KW_ELSE,        "'else'"},
-    {Type::KW_LOCAL,       "'local'"},
-    {Type::KW_THEN,        "'then'"},
-    {Type::KW_END,         "'end'"},
-    {Type::KW_FUNCTION,    "'function'"},
-    {Type::KW_RETURN,      "'return'"},
-    {Type::KW_WHILE,       "'while'"},
-    {Type::KW_FOR,         "'for'"},
-    {Type::KW_DO,          "'do'"},
-    {Type::KW_REPEAT,      "'repeat'"},
-    {Type::KW_UNTIL,       "'until'"},
-    {Type::KW_NIL,         "'nil'"},
-    {Type::KW_IN,          "'in'"},
-    {Type::KW_TRUE,        "'true'"},
-    {Type::KW_FALSE,       "'false'"},
-    {Type::KW_AND,         "'and'"},
-    {Type::KW_OR,          "'or'"},
-    {Type::KW_NOT,         "'not'"},
-    {Type::IDENT,          "'identificator'"},
-    {Type::CALLEDFUNCTION, "'function invocation'"},
-    {Type::PLUS,           "'+'"},
-    {Type::MINUS,          "'-'"},
-    {Type::STAR,           "'*'"},
-    {Type::PERCENT,        "'%'"},
-    {Type::CARET,          "'^'"},
-    {Type::CONCAT,         "'..'"},
-    {Type::DOT,            "'.'"},
-    {Type::HASH,           "'#'"},
-    {Type::L_PAREN,        "'('"},
-    {Type::R_PAREN,        "')'"},
-    {Type::L_BRACE,        "'{'"},
-    {Type::R_BRACE,        "'}'"},
-    {Type::L_BRACKET,      "'['"},
-    {Type::R_BRACKET,      "']'"},
-    {Type::COMMA,          "','"},
-    {Type::SEMICOLON,      "';'"},
-    {Type::COLON,          "':'"},
-    {Type::COLON_COLON,    "'::'"},
-    {Type::EQUAL,          "'='"},
-    {Type::ELLIPSIS,       "'...'"},
-    {Type::EQUAL_EQUAL,    "'=='"},
-    {Type::NOT_EQUAL,      "'!='"},
-    {Type::LESS,           "'<'"},
-    {Type::GREATER,        "'>'"},
-    {Type::LESS_EQUAL,     "'<='"},
-    {Type::GREATER_EQUAL,  "'>='"},
-    {Type::SLASH,          "'/'"},
-    {Type::AMPERSAND,      "'&'"},
-    {Type::VERTICAL_BAR,   "'|'"},
-    {Type::LIT_INT,        "'integer literal'"},
-    {Type::LIT_STRING,     "'string literal'"},
-    {Type::LIT_FLOAT,      "'float literal'"},
-    {Type::END_OF_FILE,    "'end of file'"},
-    {Type::ERROR,          "'ERROR'"},
+  static constexpr std::array<std::string_view, static_cast<size_t>(Type::ERROR) + 1> TokenToStrArray = {
+    "'local'", "'if'", "'then'", "'else'", "'elseif'", "'end'",
+    "'function'", "'return'", "'while'",
+    "'for'", "'do'", "'repeat'", "'until'", "'nil'",
+    "'true'", "'false'", "'and'", "'or'", "'not'", "'in'",
+    "'integer literal'", "'float literal'", "'string literal'",
+    "'hex literal'", "'char literal'", "'long string literal'",
+    "'identificator'", "'function invocation'",
+    "'+'", "'-'", "'*'", "'|'", "'/'", "'//'", "'%'",
+    "'^'", "'.'", "'..'", "'#'", "'='", "'=='",
+    "'~='", "'<'", "'>'", "'<='",
+    "'>='", "'('", "')'", "'{'",
+    "'}'", "'['", "']'", "','",
+    "':'", "'::'", "';'", "'&'",
+    "'!'", "'...'", "'~'", "'<<'", "'>>'",
+    "'end of file'", "'ERROR'",
   };
 
-  std::unordered_set<Type> UnaryOpSet = {
-    Type::MINUS, Type::PLUS, Type::HASH, Type::NOT
+  static constexpr std::array<Type, 5> UnaryOpSet = {
+    Type::MINUS, Type::PLUS, Type::HASH, Type::NOT, Type::TILDE
+  };
+
+  static inline const std::array<Type, 5> BitwiseOpSet = {
+    Type::L_SHIFT, Type::R_SHIFT, Type::TILDE, Type::VERTICAL_BAR, Type::AMPERSAND
   };
 
   Token peek();
   Token peekNext();
   Token advance();
-  bool  check(Type type);
+  bool check(Type type);
   bool checkNext(Type type); 
-  void  expect(Type type);
+  void expect(Type type);
   [[noreturn]] void throwError(Type expected);
    
   bool endblock();

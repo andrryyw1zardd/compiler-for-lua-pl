@@ -1,5 +1,7 @@
 #include "parser/parser.hpp"
+#include <string_view>
 #include <format>
+#include <algorithm>
 
 Token Parser::peek() {
   if (index >= listOfTokens.size()) return Token{.type = Type::END_OF_FILE};
@@ -44,20 +46,20 @@ void Parser::throwError(Type expected) {
   std::string expectedStr;
   std::string actualStr;
 
-  std::unordered_map<Type, std::string>::iterator exp = TokenToStrMAP.find(expected);
+  std::string_view exp = TokenToStrArray[static_cast<size_t>(expected)];
 
-  if (exp != TokenToStrMAP.end()) expectedStr = exp->second;
+  if (std::ranges::find(TokenToStrArray, exp) != TokenToStrArray.end()) expectedStr = exp;
   else throw std::runtime_error(
       std::format("internal compiler error: type not found in tokentostrmap in line {}, col {}",
-                                            positionY, positionX)
-  );
+                  positionY, positionX)
+    );
 
-  std::unordered_map<Type, std::string>::iterator act = TokenToStrMAP.find(peek().type);
+  std::string_view act = TokenToStrArray[static_cast<size_t>(peek().type)];
 
-  if (act != TokenToStrMAP.end()) actualStr = act->second;
+  if (std::ranges::find(TokenToStrArray, act) != TokenToStrArray.end()) actualStr = act;
   else throw std::runtime_error(
       std::format("internal compiler error: type not found in tokentostrmap in line {}, col {}",
-                                            positionY, positionX)
+                  positionY, positionX)
   );
 
   throw std::runtime_error(
@@ -477,6 +479,7 @@ int Parser::get_lbp() {
   switch (peek().type) {
     case Type::VERTICAL_BAR:  return 20;
     case Type::AMPERSAND:     return 30;
+    case Type::TILDE:         return 30;
     case Type::EQUAL_EQUAL:   return 40;
     case Type::NOT_EQUAL:     return 40;
     case Type::GREATER:       return 50;
@@ -497,6 +500,8 @@ int Parser::get_lbp() {
     case Type::COLON:         return 100;
     case Type::KW_OR:         return 110;
     case Type::KW_AND:        return 120;
+    case Type::L_SHIFT:       return 120;
+    case Type::R_SHIFT:       return 120;
     default: return 0;
   }
 }
@@ -511,7 +516,7 @@ std::unique_ptr<Node> Parser::nud() {
 
     return std::make_unique<BasicDataNode>(std::move(value));
   }
-  else if (UnaryOpSet.contains(peek().type)) {
+  else if (std::ranges::find(UnaryOpSet, peek().type) != UnaryOpSet.end()) {
     Token op = advance();
 
     auto val = parse_expr(90);
@@ -536,7 +541,9 @@ std::unique_ptr<Node> Parser::nud() {
         advance();
         auto field = parse_expr(0);
 
-        elements.push_back(std::make_unique<TableFieldNode>(std::move(key), std::move(field)));
+        elements.push_back(std::make_unique<TableFieldNode>(
+          std::move(key), std::move(field)
+        ));
       }
       else elements.push_back(parse_expr(0));
 
@@ -561,7 +568,10 @@ std::unique_ptr<Node> Parser::nud() {
     while (!check(Type::R_PAREN)) {
       innerArgs.push_back(parse_expr(0));
 
-      if (!check(Type::COMMA) && !check(Type::R_PAREN)) { throwError(Type::R_PAREN); }
+      if (!check(Type::COMMA) && !check(Type::R_PAREN)) {
+        throwError(Type::R_PAREN); 
+      }
+
       if (check(Type::COMMA)) advance();
     }
 
@@ -617,7 +627,7 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
       advance();
 
       if (!check(Type::IDENT)) throwError(Type::IDENT);
-      auto q = advance();
+      Token q = advance();
 
       left = std::make_unique<MemberAccessNode>(std::move(left), std::move(q));
       continue;
@@ -694,6 +704,18 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
       auto right = parse_expr(lbp);
 
       left = std::make_unique<OrTernaryNode>(
+        std::move(left),
+        std::move(right)
+      );
+      continue;
+    }
+
+    if (std::ranges::find(BitwiseOpSet, op) != BitwiseOpSet.end()) {
+      advance();
+      auto right = parse_expr(lbp);
+
+      left = std::make_unique<BitwiseNode>(
+        std::move(op),
         std::move(left),
         std::move(right)
       );

@@ -26,7 +26,7 @@ enum class Type {
   GREATER_EQUAL, L_PAREN, R_PAREN, L_BRACE,
   R_BRACE, L_BRACKET, R_BRACKET, COMMA,
   COLON, COLON_COLON, SEMICOLON, AMPERSAND, 
-  NOT, ELLIPSIS,
+  NOT, ELLIPSIS, TILDE, L_SHIFT, R_SHIFT,
 
   END_OF_FILE, // Specefic
   ERROR
@@ -46,7 +46,7 @@ private:
   unsigned long long int index;
   int x, y;
 
-  std::unordered_map<char, Type> operationMap = {
+  static inline std::unordered_map<char, Type> operationMap = {
     {'+', Type::PLUS},
     {'-', Type::MINUS},
     {'*', Type::STAR},
@@ -62,10 +62,13 @@ private:
     {',', Type::COMMA},
     {';', Type::SEMICOLON},
     {'!', Type::NOT},
+    {'&', Type::AMPERSAND},
+    {'~', Type::TILDE},
+    {'|', Type::VERTICAL_BAR},
     {'\0', Type::END_OF_FILE},
   };
   
-  std::unordered_map<std::string, Type> keywordMap = {
+  static inline std::unordered_map<std::string, Type> keywordMap = {
     {"local",    Type::KW_LOCAL},
     {"if",       Type::KW_IF},
     {"then",     Type::KW_THEN},
@@ -88,7 +91,7 @@ private:
     {"in",       Type::KW_IN},
   };
 
-  char numbersArray[10] = {'0', '1', '2', '3', '4',
+  static constexpr char numbersArray[10] = {'0', '1', '2', '3', '4',
                           '5', '6', '7', '8', '9'};
 
   char peek(); 

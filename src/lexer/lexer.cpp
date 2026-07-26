@@ -318,12 +318,14 @@ Token Lexer::nextToken() {
       case '<':
         advance();
         if (match('=')) type = Type::LESS_EQUAL;
+        else if (match('<')) type = Type::L_SHIFT;
         else type = Type::LESS;
         return Token{.type = type, .position = {x, y}};
 
       case '>':
         advance();
         if (match('=')) type = Type::GREATER_EQUAL;
+        else if (match('>')) type = Type::R_SHIFT;
         else type = Type::GREATER;
         return Token{.type = type, .position = {x, y}};
 
@@ -350,17 +352,6 @@ Token Lexer::nextToken() {
           advance();
           type = Type::CONCAT;
         }
-        return Token{.type = type, .position = {x, y}};
-
-      case '|':
-        advance();
-        if (match('|')) type = Type::VERTICAL_BAR;
-        else type = Type::ERROR;
-        return Token{.type = type, .position = {x, y}};
-      case '&':
-        advance();
-        if (match('&')) type = Type::AMPERSAND;
-        else type = Type::ERROR;
         return Token{.type = type, .position = {x, y}};
 
       default:
