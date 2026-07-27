@@ -146,12 +146,22 @@ struct ArrayNode : Node {
   }
 };
 
-struct IndexNode : Node {
+struct ExprWithIndexNode : Node {
   std::unique_ptr<Node> left;
   std::unique_ptr<Node> index_expr;
 
-  IndexNode(std::unique_ptr<Node> l, std::unique_ptr<Node> ie) 
+  ExprWithIndexNode(std::unique_ptr<Node> l, std::unique_ptr<Node> ie) 
   : left(std::move(l)), index_expr(std::move(ie)) { }
+
+  std::string_view getName() const override {
+    return "ExprWithIndexNode";
+  }
+};
+
+struct IndexNode : Node {
+  std::unique_ptr<Node> index_expr;
+
+  IndexNode(std::unique_ptr<Node> ie) : index_expr(std::move(ie)) { }
 
   std::string_view getName() const override {
     return "IndexNode";
@@ -171,10 +181,11 @@ struct XORNode : Node {
 };
 
 struct TableFieldNode : Node {
-  Token key;
+  std::unique_ptr<Node> key;
   std::unique_ptr<Node> value;
 
-  TableFieldNode(Token k, std::unique_ptr<Node> v) : key(std::move(k)), value(std::move(v)) {}
+  TableFieldNode(std::unique_ptr<Node> k, std::unique_ptr<Node> v)
+  : key(std::move(k)), value(std::move(v)) { }
 
   std::string_view getName() const override {
     return "TableFieldNode"; 

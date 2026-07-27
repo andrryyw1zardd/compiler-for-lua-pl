@@ -478,33 +478,33 @@ std::unique_ptr<Node> Parser::parse_stat() {
 
 int Parser::get_lbp() {
   switch (peek().type) {
-    case Type::VERTICAL_BAR:  return 20;
-    case Type::AMPERSAND:     return 30;
-    case Type::PERCENT:       return 30;
-    case Type::DOUBLE_SLASH:  return 30;
+    case Type::KW_OR:         return 10;
+    case Type::KW_AND:        return 20;
+    case Type::VERTICAL_BAR:  return 30;
     case Type::TILDE:         return 30;
+    case Type::AMPERSAND:     return 30;
+    case Type::L_SHIFT:       return 30;
+    case Type::R_SHIFT:       return 30;
     case Type::EQUAL_EQUAL:   return 40;
     case Type::NOT_EQUAL:     return 40;
     case Type::GREATER:       return 50;
     case Type::GREATER_EQUAL: return 50;
     case Type::LESS:          return 50;
     case Type::LESS_EQUAL:    return 50;
-    case Type::CONCAT:        return 55;
-    case Type::PLUS:          return 60;
-    case Type::MINUS:         return 60;
-    case Type::SLASH:         return 70;
+    case Type::CONCAT:        return 60;
+    case Type::PLUS:          return 70;
+    case Type::MINUS:         return 70;
+    case Type::PERCENT:       return 80;
+    case Type::DOUBLE_SLASH:  return 80;
+    case Type::SLASH:         return 80;
     case Type::STAR:
-      if(checkNext(Type::STAR)) return 80;
-      return 70;
-    case Type::NOT:           return 90;
-    case Type::DOT:           return 100;
-    case Type::L_PAREN:       return 100;
-    case Type::L_BRACKET:     return 100;
-    case Type::COLON:         return 100;
-    case Type::KW_OR:         return 110;
-    case Type::KW_AND:        return 120;
-    case Type::L_SHIFT:       return 120;
-    case Type::R_SHIFT:       return 120;
+      if (checkNext(Type::STAR)) return 90;
+      return 80;
+    case Type::NOT:           return 100;
+    case Type::DOT:           return 110;
+    case Type::L_PAREN:       return 110;
+    case Type::L_BRACKET:     return 110;
+    case Type::COLON:         return 110;
     default: return 0;
   }
 }
@@ -539,19 +539,39 @@ std::unique_ptr<Node> Parser::nud() {
     std::vector<std::unique_ptr<Node>> elements;
 
     while (!check(Type::R_BRACE)) {
-      if (check(Type::IDENT) && checkNext(Type::EQUAL)) {
-        Token key = advance();
+      if ( check(Type::L_BRACKET) ) {
         advance();
-        auto field = parse_expr(0);
 
-        elements.push_back(std::make_unique<TableFieldNode>(
-          std::move(key), std::move(field)
-        ));
+        auto index_expr = parse_expr(0);
+        auto index = std::make_unique<IndexNode>(std::move(index_expr));
+
+        expect(Type::R_BRACKET);
+
+        if (check(Type::EQUAL)) {
+          advance();
+
+          auto value = parse_expr(0);
+
+          elements.push_back(std::make_unique<TableFieldNode>(
+            std::move(index), std::move(value)));
+        }
+        else elements.push_back(std::move(index));
       }
-      else elements.push_back(parse_expr(0));
+      else { // for any other case
+        auto key = parse_expr(0);
+
+        if (check(Type::EQUAL)) {
+          advance();
+          auto value = parse_expr(0);
+
+          elements.push_back(std::make_unique<TableFieldNode>(
+            std::move(key), std::move(value)));
+        }
+        else elements.push_back(std::move(key));
+      }
 
       if (check(Type::COMMA)) advance();
-    }
+    } 
     expect(Type::R_BRACE);
 
     return std::make_unique<ArrayNode>(std::move(elements));
@@ -684,7 +704,7 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
       auto index_expr = parse_expr(0);
       expect(Type::R_BRACKET);
 
-      left = std::make_unique<IndexNode>(
+      left = std::make_unique<ExprWithIndexNode>(
         std::move(left),
         std::move(index_expr)
       );
