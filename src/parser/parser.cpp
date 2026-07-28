@@ -185,6 +185,15 @@ std::unique_ptr<Node> Parser::parse_local() {
   return std::make_unique<DefineVariableNode>( std::move(name), std::move(expr) );
 }
 
+std::unique_ptr<Node> Parser::parse_do() {
+  advance();
+
+  auto body = parse_block();
+  expect(Type::KW_END);
+
+  return std::make_unique<DoNode>(std::move(body));
+}
+
 std::unique_ptr<Node> Parser::parse_while() {
   advance();
 
@@ -470,6 +479,9 @@ std::unique_ptr<Node> Parser::parse_stat() {
     case Type::KW_REPEAT:
       return parse_repeat();
       break;
+    case Type::KW_DO:
+      return parse_do();
+      break;
     default:
       return parse_expr(0); 
       break;
@@ -497,6 +509,7 @@ int Parser::get_lbp() {
     case Type::PERCENT:       return 80;
     case Type::DOUBLE_SLASH:  return 80;
     case Type::SLASH:         return 80;
+    case Type::CARET:         return 90;
     case Type::STAR:
       if (checkNext(Type::STAR)) return 90;
       return 80;

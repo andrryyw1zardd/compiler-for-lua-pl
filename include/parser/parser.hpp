@@ -219,6 +219,16 @@ struct ElseIfNode : Node {
   }
 };
 
+struct DoNode : Node {
+  std::vector<std::unique_ptr<Node>> body;
+
+  DoNode(std::vector<std::unique_ptr<Node>> b) : body(std::move(b)) { }
+
+  std::string_view getName() const override {
+    return "DoNode";
+  }
+};
+
 struct WhileNode : Node {
   std::unique_ptr<Node> condition;
   std::vector<std::unique_ptr<Node>> body;
@@ -401,6 +411,7 @@ private:
 
   std::unique_ptr<Node> parse_if();
   std::unique_ptr<Node> parse_elseif();
+  std::unique_ptr<Node> parse_do();
   std::unique_ptr<Node> parse_while();
   std::unique_ptr<Node> parse_for();
   std::unique_ptr<Node> parse_repeat();

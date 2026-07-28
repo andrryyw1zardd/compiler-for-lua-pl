@@ -58,10 +58,10 @@ int main([[maybe_unused]]int argc, char** args) {
     sourceCode += i + "\n"; 
   }
 
-  Lexer lex(sourceCode);
+  Lexer lex{sourceCode};
   std::vector<Token> VectorOfTokens = lex.tokenize();
 
-  Parser parser(VectorOfTokens);  
+  Parser parser{VectorOfTokens};  
   auto ast = parser.parse_block();
 
   readFile.close(); 
