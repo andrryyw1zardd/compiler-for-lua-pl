@@ -445,17 +445,4 @@ for i, v in myIpairs({"x", "y", "z"}) do
     print(i, v)
 end
 
---------------------------------------------------------------------
--- 30. Labeled break out of nested loops via goto
---------------------------------------------------------------------
-print("\n-- Nested loop break via goto --")
-for i = 1, 3 do
-    for j = 1, 3 do
-        if i == 2 and j == 2 then goto done end
-        print("i,j =", i, j)
-    end
-end
-::done::
-print("escaped nested loops")
-
 print("\nAll extended syntax examples executed.")

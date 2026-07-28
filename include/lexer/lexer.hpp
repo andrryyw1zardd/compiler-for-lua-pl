@@ -9,7 +9,7 @@
 
 enum class Type {
   KW_LOCAL, KW_IF, KW_THEN, KW_ELSE, KW_ELSEIF, KW_END,
-  KW_FUNCTION, KW_RETURN, KW_WHILE,
+  KW_FUNCTION, KW_RETURN, KW_WHILE, KW_CONST, KW_CLOSE,
   KW_FOR, KW_DO, KW_REPEAT, KW_UNTIL, KW_NIL,
   KW_TRUE, KW_FALSE, KW_AND, KW_OR, KW_NOT, KW_IN,
 
@@ -70,6 +70,8 @@ private:
   
   static inline std::unordered_map<std::string, Type> keywordMap = {
     {"local",    Type::KW_LOCAL},
+    {"const",    Type::KW_CONST},
+    {"close",    Type::KW_CLOSE},
     {"if",       Type::KW_IF},
     {"then",     Type::KW_THEN},
     {"else",     Type::KW_ELSE},

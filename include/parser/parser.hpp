@@ -110,6 +110,19 @@ struct VariableNode : Node {
   }
 };
 
+struct VarWithAttributeNode : Node {
+  Type type;
+  Token value;
+  std::unique_ptr<Node> right;
+
+  VarWithAttributeNode (Type t, Token v, std::unique_ptr<Node> r)
+    : type(std::move(t)), value(std::move(v)), right(std::move(r)) { }  
+
+  std::string_view getName() const override {
+    return "VarWithAttributeNode";
+  }
+};
+
 struct DefineVariableNode : Node {
   Token value;
 
@@ -372,7 +385,7 @@ private:
 
   static constexpr std::array<std::string_view, static_cast<size_t>(Type::ERROR) + 1> TokenToStrArray = {
     "'local'", "'if'", "'then'", "'else'", "'elseif'", "'end'",
-    "'function'", "'return'", "'while'",
+    "'function'", "'return'", "'while'", "'const'", "'close'",
     "'for'", "'do'", "'repeat'", "'until'", "'nil'",
     "'true'", "'false'", "'and'", "'or'", "'not'", "'in'",
     "'integer literal'", "'float literal'", "'string literal'",
@@ -385,11 +398,12 @@ private:
     "'}'", "'['", "']'", "','",
     "':'", "'::'", "';'", "'&'",
     "'!'", "'...'", "'~'", "'<<'", "'>>'",
-    "'end of file'", "'ERROR'",
+    "'end of file'",
+    "'ERROR'",
   };
 
   static constexpr std::array<Type, 5> UnaryOpSet = {
-    Type::MINUS, Type::PLUS, Type::HASH, Type::NOT, Type::TILDE
+    Type::MINUS, Type::PLUS, Type::HASH, Type::KW_NOT, Type::TILDE
   };
 
   static inline const std::array<Type, 5> BitwiseOpSet = {

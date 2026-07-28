@@ -116,10 +116,15 @@ std::unique_ptr<Node> Parser::parse_ident() {
 
 std::unique_ptr<Node> Parser::parse_local() {
   advance();
+  bool isConst = false;
 
   if (!check(Type::IDENT)) {
     if (check(Type::KW_FUNCTION)) {
      return parse_function(true);
+    }
+    if (check(Type::KW_CONST)) {
+      isConst = true;
+      advance();
     }
     else throwError(Type::KW_FUNCTION);
   }
@@ -180,9 +185,38 @@ std::unique_ptr<Node> Parser::parse_local() {
 
     return std::make_unique<DefineVariableNode>( std::move(name), std::move(expr) );
   }
+  else if (checkNext(Type::LESS)) {
+    advance();
+    advance();
+    Type type;
+
+    // add to throwError list
+    if (check(Type::KW_CLOSE) || check(Type::KW_CONST)) {
+      type = peek().type; 
+      advance();
+    }
+    else throwError(Type::KW_CLOSE);
+
+    expect(Type::GREATER);
+    expect(Type::EQUAL);
+
+    auto right = parse_expr(0);
+
+    return std::make_unique<VarWithAttributeNode>(
+      std::move(type),
+      std::move(name),
+      std::move(right)
+    );
+  }
+  if (isConst && !checkNext(Type::EQUAL)) {
+    throwError(Type::EQUAL);
+  }
   else advance();
 
-  return std::make_unique<DefineVariableNode>( std::move(name), std::move(expr) );
+  return std::make_unique<DefineVariableNode>(
+    std::move(name),
+    std::move(expr)
+  );
 }
 
 std::unique_ptr<Node> Parser::parse_do() {
@@ -525,7 +559,8 @@ int Parser::get_lbp() {
 std::unique_ptr<Node> Parser::nud() {
   if (check(Type::LIT_INT) || check(Type::LIT_FLOAT) || check(Type::LIT_STRING)
     || check(Type::KW_TRUE) || check(Type::KW_FALSE) || check(Type::LIT_LONG_STRING)
-    || check(Type::LIT_HEX) || check(Type::LIT_CHAR) || check(Type::ELLIPSIS)
+    || check(Type::LIT_HEX) || check(Type::LIT_CHAR) || check(Type::ELLIPSIS) 
+    || check(Type::KW_NIL)
   ) {
     Token value = peek();
     advance();
