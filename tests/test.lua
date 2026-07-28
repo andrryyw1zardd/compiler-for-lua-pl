@@ -446,3 +446,51 @@ for i, v in myIpairs({"x", "y", "z"}) do
 end
 
 print("\nAll extended syntax examples executed.")
+
+if a then
+    while b do
+        repeat
+            for i=1,10 do
+                if c then
+                    do
+                        local x = function(...)
+                            return function()
+                                return {
+                                    a = {
+                                        b = {
+                                            c = {}
+                                        }
+                                    }
+                                }
+                            end
+                        end
+                    end
+                end
+            end
+        until d
+    end
+end
+
+((((((((42))))))))
+
+((((function() end))))
+
+(function() end)
+
+(function() return 1 end)()
+
+((((print))))("hello")
+
+a.b.c.d.e
+
+((((f))))()
+
+-- cant parse ts bruh
+-- a[b][c][d]
+-- a():b():c()
+-- a().b.c()
+-- ((((a))))().b[1]:c().d
+-- f{}
+-- f"hello"
+-- f[[abc]]
+-- f[=[abc]=]

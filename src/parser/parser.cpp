@@ -746,6 +746,7 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
       continue;
     }
 
+    // can parse only a[i] but not a[i][j] and so on
     if (op == Type::L_BRACKET) {
       advance();
 
