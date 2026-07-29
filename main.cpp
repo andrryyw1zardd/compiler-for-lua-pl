@@ -46,9 +46,13 @@ Code Generator
 #include <vector>             // INCLUDED FOR std::vector<Token>
 #include "lexer/lexer.hpp"    // INCLUDED FOR class Lexer, tokenize() 
 #include "parser/parser.hpp"  // INCLUDED FOR class Parser, parse_block()
+#include <chrono>
+#include <iostream>
 
 int main([[maybe_unused]]int argc, char** args) {
     std::string sourceCode;
+
+    auto t0 = std::chrono::high_resolution_clock::now();
 
     std::fstream readFile(args[1]);  
     std::pmr::string i;
@@ -61,8 +65,18 @@ int main([[maybe_unused]]int argc, char** args) {
     Lexer lex{sourceCode};
     std::vector<Token> VectorOfTokens = lex.tokenize();
 
+    auto t1 = std::chrono::high_resolution_clock::now();
+
     Parser parser{VectorOfTokens};  
     auto ast = parser.parse_block();
+
+    auto t2 = std::chrono::high_resolution_clock::now();
+
+    auto lex_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+    auto par_us = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+
+    std::cerr << "Lexer Speed: " << lex_us << " us\n";
+    std::cerr << "Parser Speed: " << par_us << " us\n";
 
     readFile.close(); 
     return 0;

@@ -486,11 +486,12 @@ a.b.c.d.e
 ((((f))))()
 
 -- cant parse ts bruh
--- a[b][c][d]
--- a():b():c()
--- a().b.c()
--- ((((a))))().b[1]:c().d
--- f{}
--- f"hello"
--- f[[abc]]
--- f[=[abc]=]
+print(a[b][c][d])
+
+print(a():b():c())
+print(a().b.c())
+print(((((a))))().b[1]:c().d)
+print(f{})
+print(f"hello")
+print(f[[abc]])
+print(f[=[abc]=])

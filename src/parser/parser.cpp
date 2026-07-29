@@ -683,12 +683,12 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
             advance();
 
             std::unique_ptr<Node> right = parse_expr(lbp - 1); 
+
             left = std::make_unique<BinaryOpNode>(
                 op,
                 std::move(left),
                 std::move(right)
             );
-
             continue;
         }
 
@@ -748,7 +748,7 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
         if (op == Type::L_BRACKET) {
             advance();
 
-            auto index_expr = parse_expr(0);
+            auto index_expr = parse_expr(lbp);
             expect(Type::R_BRACKET);
 
             left = std::make_unique<ExprWithIndexNode>(
