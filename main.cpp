@@ -48,22 +48,22 @@ Code Generator
 #include "parser/parser.hpp"  // INCLUDED FOR class Parser, parse_block()
 
 int main([[maybe_unused]]int argc, char** args) {
-  std::string sourceCode;
+    std::string sourceCode;
 
-  std::fstream readFile(args[1]);  
-  std::pmr::string i;
+    std::fstream readFile(args[1]);  
+    std::pmr::string i;
 
-  // reading and adding into sourceCode line by line (NOT char by char)
-  while (std::getline(readFile, i)) { 
-    sourceCode += i + "\n"; 
-  }
+    // reading and adding into sourceCode line by line (NOT char by char)
+    while (std::getline(readFile, i)) { 
+        sourceCode += i + "\n"; 
+    }
 
-  Lexer lex{sourceCode};
-  std::vector<Token> VectorOfTokens = lex.tokenize();
+    Lexer lex{sourceCode};
+    std::vector<Token> VectorOfTokens = lex.tokenize();
 
-  Parser parser{VectorOfTokens};  
-  auto ast = parser.parse_block();
+    Parser parser{VectorOfTokens};  
+    auto ast = parser.parse_block();
 
-  readFile.close(); 
-  return 0;
+    readFile.close(); 
+    return 0;
 }
