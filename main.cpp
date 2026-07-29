@@ -81,3 +81,9 @@ int main([[maybe_unused]]int argc, char** args) {
     readFile.close(); 
     return 0;
 }
+
+// Ok so making ast with bunch of smart pointers wasn't a good idea
+// But now I know about Arena Allocation and I want to make my own Allocator
+// So I can use it to make my compiler faster and to save memory 
+// Heres what we got now --- Lexer Speed: 1220 us ; Parser Speed: 3476 us
+// 0.001 + 0.003 = 0.004 seconds, which is extremely slow

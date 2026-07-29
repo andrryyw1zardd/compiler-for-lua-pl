@@ -128,10 +128,10 @@ Token Lexer::nextToken() {
 
    // this statment is just for ident to not begin from number (123var)
    if (std::isalpha(peek()) || peek() == '_') { 
-        while (std::isalnum(peek()) || peek() == '_') {
-            value += peek();
-            advance();
-        }
+
+        size_t start = index;
+        while (std::isalnum(peek()) || peek() == '_') { advance(); }
+        value = sourceCode.substr(start, index - start);
     }
 
     if (value != "") {
@@ -292,13 +292,11 @@ Token Lexer::nextToken() {
     }
 
     // checking if its a symbol   
-    Type type;
-    if (operationMap.count(peek())) { // if exists in map
-        type = operationMap[peek()]; 
+    Type type = operationTable[static_cast<unsigned char>(peek())];
+
+    if (type != Type::ERROR) { // if exists in array 
         advance();
-
         return Token{.type = type, .position = {x, y}};
-
     } else {
         switch (peek()) {
             case '=':
@@ -361,6 +359,7 @@ Token Lexer::nextToken() {
 
 std::vector<Token> Lexer::tokenize() { 
     std::vector<Token> VectorOfTokens;
+    VectorOfTokens.reserve(sourceCode.size() / 4);
 
     while (peek() != '\0') {
         Token t = nextToken();

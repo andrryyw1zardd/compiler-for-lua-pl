@@ -1,8 +1,9 @@
-#include <any>             // included for std::any in struct Token
 #include <string>          // included for std::string in class Lexer 
 #include <vector>          // included for std::vector<Token> tokenize() in class Lexer 
 #include <unordered_map>   // included for std::unordered_map<char, Type> operationMap in class Lexer 
 #include <stdbool.h>       // included for bool match(char expected) in class Lexer 
+#include <variant>
+#include <array>
 
 #ifndef LEXER_HPP
 #define LEXER_HPP
@@ -36,7 +37,7 @@ struct Vect2 { int x; int y; };
 
 struct Token { 
     Type type; 
-    std::any value;
+    std::variant<std::monostate, std::string, int, float> value;
     Vect2 position;
 };
 
@@ -46,28 +47,33 @@ private:
     unsigned long long int index;
     int x, y;
 
-    static inline std::unordered_map<char, Type> operationMap = {
-        {'+', Type::PLUS},
-        {'-', Type::MINUS},
-        {'*', Type::STAR},
-        {'%', Type::PERCENT},
-        {'^', Type::CARET},
-        {'#', Type::HASH},
-        {'(', Type::L_PAREN},
-        {')', Type::R_PAREN},
-        {'{', Type::L_BRACE},
-        {'}', Type::R_BRACE},
-        {'[', Type::L_BRACKET},
-        {']', Type::R_BRACKET},
-        {',', Type::COMMA},
-        {';', Type::SEMICOLON},
-        {'!', Type::NOT},
-        {'&', Type::AMPERSAND},
-        {'~', Type::TILDE},
-        {'|', Type::VERTICAL_BAR},
-        {'\0', Type::END_OF_FILE},
-    };
-    
+    static constexpr std::array<Type, 256> operationTable = [] {
+        std::array<Type, 256> table{};
+        table.fill(Type::ERROR);
+
+        table[0] = Type::END_OF_FILE;
+        table[static_cast<unsigned char>('+')] = Type::PLUS;
+        table[static_cast<unsigned char>('-')] = Type::MINUS;
+        table[static_cast<unsigned char>('*')] = Type::STAR;
+        table[static_cast<unsigned char>('%')] = Type::PERCENT;
+        table[static_cast<unsigned char>('^')] = Type::CARET;
+        table[static_cast<unsigned char>('#')] = Type::HASH;
+        table[static_cast<unsigned char>('(')] = Type::L_PAREN;
+        table[static_cast<unsigned char>(')')] = Type::R_PAREN;
+        table[static_cast<unsigned char>('{')] = Type::L_BRACE;
+        table[static_cast<unsigned char>('}')] = Type::R_BRACE;
+        table[static_cast<unsigned char>('[')] = Type::L_BRACKET;
+        table[static_cast<unsigned char>(']')] = Type::R_BRACKET;
+        table[static_cast<unsigned char>(',')] = Type::COMMA;
+        table[static_cast<unsigned char>(';')] = Type::SEMICOLON;
+        table[static_cast<unsigned char>('!')] = Type::NOT;
+        table[static_cast<unsigned char>('&')] = Type::AMPERSAND;
+        table[static_cast<unsigned char>('~')] = Type::TILDE;
+        table[static_cast<unsigned char>('|')] = Type::VERTICAL_BAR;
+
+        return table;
+    }();
+
     static inline std::unordered_map<std::string, Type> keywordMap = {
         {"local",    Type::KW_LOCAL},
         {"const",    Type::KW_CONST},
