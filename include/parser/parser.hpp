@@ -410,8 +410,8 @@ private:
         Type::L_SHIFT, Type::R_SHIFT, Type::TILDE, Type::VERTICAL_BAR, Type::AMPERSAND
     };
 
-    Token peek();
-    Token peekNext();
+    const Token& peek();
+    const Token& peekNext();
     Token advance();
     bool check(Type type);
     bool checkNext(Type type); 

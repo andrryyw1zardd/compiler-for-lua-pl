@@ -6,13 +6,15 @@
 Arena arena(1024 * 1024);
 ArenaAllocator<Node*> alloc(arena);
 
-Token Parser::peek() {
-    if (index >= listOfTokens.size()) return Token{.type = Type::END_OF_FILE};
+const Token& Parser::peek() {
+    static const Token eof {.type = Type::END_OF_FILE};
+    if (index >= listOfTokens.size()) return eof;
     return listOfTokens[index];
 }
 
-Token Parser::peekNext() {
-    if (index + 1 >= listOfTokens.size()) return Token{.type = Type::END_OF_FILE};  
+const Token& Parser::peekNext() {
+    static const Token eof {.type = Type::END_OF_FILE};
+    if (index >= listOfTokens.size()) return eof;
     return listOfTokens[index + 1];
 }
 
@@ -795,7 +797,6 @@ Node* Parser::parse_expr(int min_lbp) {
 
         if (lbp > 0) {
             advance();
-
             Node* right = parse_expr(lbp);
 
             left = make<BinaryOpNode>(alloc, 1, 

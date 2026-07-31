@@ -135,9 +135,9 @@ Token Lexer::nextToken() {
     }
 
     if (value != "") {
-        if (keywordMap.count(value)) { // this is keyword
-            Type type;   
-            type = keywordMap[value];
+        auto t = keywordMap.find(value);
+        if (t != keywordMap.end()) { // this is keyword
+            Type type = t->second;
 
             return Token{.type = type, .value = value, .position = {x, y}};
         } 
