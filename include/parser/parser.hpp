@@ -1,11 +1,12 @@
-#include <lexer/lexer.hpp>
-#include <stdbool.h>
-#include <memory>
-#include <string_view>
-#include <array>
-
 #ifndef PARSER_HPP
 #define PARSER_HPP
+
+#include <lexer/lexer.hpp>
+#include <stdbool.h>
+#include <string_view>
+#include <array>
+#include <vector>
+#include "allocator/alloc.hpp"
 
 struct Node {
     Vect2 position;
@@ -16,9 +17,9 @@ struct Node {
 
 struct UnaryOpNode : Node {
     Token op;
-    std::unique_ptr<Node> value;
+    Node* value;
 
-    UnaryOpNode(Token o, std::unique_ptr<Node> v)
+    UnaryOpNode(Token o, Node* v)
     : op(std::move(o)), value(std::move(v)) {}
 
     std::string_view getName() const override {
@@ -27,10 +28,10 @@ struct UnaryOpNode : Node {
 };
 
 struct AndTernaryNode : Node {
-    std::unique_ptr<Node> left;
-    std::unique_ptr<Node> right;
+    Node* left;
+    Node* right;
 
-    AndTernaryNode(std::unique_ptr<Node> l, std::unique_ptr<Node> r) 
+    AndTernaryNode(Node* l, Node* r) 
     : left(std::move(l)), right(std::move(r)) { }
 
     std::string_view getName() const override {
@@ -39,10 +40,10 @@ struct AndTernaryNode : Node {
 };
 
 struct OrTernaryNode : Node {
-    std::unique_ptr<Node> left;
-    std::unique_ptr<Node> right;
+    Node* left;
+    Node* right;
 
-    OrTernaryNode(std::unique_ptr<Node> l, std::unique_ptr<Node> r) 
+    OrTernaryNode(Node* l, Node* r) 
     : left(std::move(l)), right(std::move(r)) { }
 
     std::string_view getName() const override {
@@ -53,10 +54,10 @@ struct OrTernaryNode : Node {
 struct BinaryOpNode : Node {
     Type op;
 
-    std::unique_ptr<Node> left;
-    std::unique_ptr<Node> right;
+    Node* left;
+    Node* right;
 
-    BinaryOpNode(Type op, std::unique_ptr<Node> l, std::unique_ptr<Node> r) 
+    BinaryOpNode(Type op, Node* l, Node* r) 
         : op(std::move(op)), left(std::move(l)), right(std::move(r)) { }
 
     std::string_view getName() const override {
@@ -67,10 +68,10 @@ struct BinaryOpNode : Node {
 struct BitwiseNode : Node {
     Type op;
 
-    std::unique_ptr<Node> left;
-    std::unique_ptr<Node> right;
+    Node* left;
+    Node* right;
 
-    BitwiseNode(Type op, std::unique_ptr<Node> l, std::unique_ptr<Node> r) 
+    BitwiseNode(Type op, Node* l, Node* r) 
         : op(std::move(op)), left(std::move(l)), right(std::move(r)) { }
 
     std::string_view getName() const override {
@@ -79,10 +80,10 @@ struct BitwiseNode : Node {
 };
 
 struct MemberAccessNode : Node {
-    std::unique_ptr<Node> value;
+    Node* value;
     Token qualifier;
 
-    MemberAccessNode(std::unique_ptr<Node> v, Token q) 
+    MemberAccessNode(Node* v, Token q) 
         : value(std::move(v)), qualifier(std::move(q)) { }
 
     std::string_view getName() const override {
@@ -113,9 +114,9 @@ struct VariableNode : Node {
 struct VarWithAttributeNode : Node {
     Type type;
     Token value;
-    std::unique_ptr<Node> right;
+    Node* right;
 
-    VarWithAttributeNode (Type t, Token v, std::unique_ptr<Node> r)
+    VarWithAttributeNode (Type t, Token v, Node* r)
         : type(std::move(t)), value(std::move(v)), right(std::move(r)) { }  
 
     std::string_view getName() const override {
@@ -126,9 +127,9 @@ struct VarWithAttributeNode : Node {
 struct DefineVariableNode : Node {
     Token value;
 
-    std::unique_ptr<Node> right;
+    Node* right;
 
-    DefineVariableNode(Token v, std::unique_ptr<Node> r)
+    DefineVariableNode(Token v, Node* r)
         : value(std::move(v)), right(std::move(r)) { }  
 
     std::string_view getName() const override {
@@ -138,10 +139,10 @@ struct DefineVariableNode : Node {
 
 struct MultipleVariableNode : Node {
     Type op;
-    std::vector<std::unique_ptr<Node>> left_side;
-    std::vector<std::unique_ptr<Node>> right_side;
+    std::vector<Node*, ArenaAllocator<Node*>> left_side;
+    std::vector<Node*, ArenaAllocator<Node*>> right_side;
 
-    MultipleVariableNode(Type op, std::vector<std::unique_ptr<Node>> ls, std::vector<std::unique_ptr<Node>> rs)
+    MultipleVariableNode(Type op, std::vector<Node*, ArenaAllocator<Node*>> ls, std::vector<Node*, ArenaAllocator<Node*>> rs)
         : op(std::move(op)), left_side(std::move(ls)), right_side(std::move(rs)) { }
 
     std::string_view getName() const override {
@@ -150,9 +151,9 @@ struct MultipleVariableNode : Node {
 };
 
 struct ArrayNode : Node {
-    std::vector<std::unique_ptr<Node>> elements;
+    std::vector<Node*, ArenaAllocator<Node*>> elements;
 
-    ArrayNode(std::vector<std::unique_ptr<Node>> e) : elements(std::move(e)) { }
+    ArrayNode(std::vector<Node*, ArenaAllocator<Node*>> e) : elements(std::move(e)) { }
 
     std::string_view getName() const override {
         return "ArrayNode";
@@ -160,10 +161,10 @@ struct ArrayNode : Node {
 };
 
 struct ExprWithIndexNode : Node {
-    std::unique_ptr<Node> left;
-    std::unique_ptr<Node> index_expr;
+    Node* left;
+    Node* index_expr;
 
-    ExprWithIndexNode(std::unique_ptr<Node> l, std::unique_ptr<Node> ie) 
+    ExprWithIndexNode(Node* l, Node* ie) 
     : left(std::move(l)), index_expr(std::move(ie)) { }
 
     std::string_view getName() const override {
@@ -172,9 +173,9 @@ struct ExprWithIndexNode : Node {
 };
 
 struct IndexNode : Node {
-    std::unique_ptr<Node> index_expr;
+    Node* index_expr;
 
-    IndexNode(std::unique_ptr<Node> ie) : index_expr(std::move(ie)) { }
+    IndexNode(Node* ie) : index_expr(std::move(ie)) { }
 
     std::string_view getName() const override {
         return "IndexNode";
@@ -182,10 +183,10 @@ struct IndexNode : Node {
 };
 
 struct XORNode : Node {
-    std::unique_ptr<Node> left;
-    std::unique_ptr<Node> right;
+    Node* left;
+    Node* right;
 
-    XORNode(std::unique_ptr<Node> l, std::unique_ptr<Node> r) 
+    XORNode(Node* l, Node* r) 
     : left(std::move(l)), right(std::move(r)) { }
 
     std::string_view getName() const override {
@@ -194,10 +195,10 @@ struct XORNode : Node {
 };
 
 struct TableFieldNode : Node {
-    std::unique_ptr<Node> key;
-    std::unique_ptr<Node> value;
+    Node* key;
+    Node* value;
 
-    TableFieldNode(std::unique_ptr<Node> k, std::unique_ptr<Node> v)
+    TableFieldNode(Node* k, Node* v)
     : key(std::move(k)), value(std::move(v)) { }
 
     std::string_view getName() const override {
@@ -206,13 +207,13 @@ struct TableFieldNode : Node {
 };
 
 struct IfNode : Node {
-    std::unique_ptr<Node> condition;
-    std::vector<std::unique_ptr<Node>> body;
-    std::vector<std::unique_ptr<Node>> elseifs;
-    std::vector<std::unique_ptr<Node>> elseBody;
+    Node* condition;
+    std::vector<Node*, ArenaAllocator<Node*>> body;
+    std::vector<Node*, ArenaAllocator<Node*>> elseifs;
+    std::vector<Node*, ArenaAllocator<Node*>> elseBody;
 
-    IfNode(std::unique_ptr<Node> c, std::vector<std::unique_ptr<Node>> b,
-           std::vector<std::unique_ptr<Node>> ei, std::vector<std::unique_ptr<Node>> eb)
+    IfNode(Node* c, std::vector<Node*, ArenaAllocator<Node*>> b,
+           std::vector<Node*, ArenaAllocator<Node*>> ei, std::vector<Node*, ArenaAllocator<Node*>> eb)
         : condition(std::move(c)), body(std::move(b)), elseifs(std::move(ei)), elseBody(std::move(eb)){ };
 
     std::string_view getName() const override {
@@ -221,10 +222,10 @@ struct IfNode : Node {
 };
 
 struct ElseIfNode : Node {
-    std::unique_ptr<Node> condition;
-    std::vector<std::unique_ptr<Node>> body;
+    Node* condition;
+    std::vector<Node*, ArenaAllocator<Node*>> body;
 
-    ElseIfNode(std::unique_ptr<Node> c, std::vector<std::unique_ptr<Node>> b) 
+    ElseIfNode(Node* c, std::vector<Node*, ArenaAllocator<Node*>> b) 
         : condition(std::move(c)), body(std::move(b)) { };
 
     std::string_view getName() const override {
@@ -233,9 +234,9 @@ struct ElseIfNode : Node {
 };
 
 struct DoNode : Node {
-    std::vector<std::unique_ptr<Node>> body;
+    std::vector<Node*, ArenaAllocator<Node*>> body;
 
-    DoNode(std::vector<std::unique_ptr<Node>> b) : body(std::move(b)) { }
+    DoNode(std::vector<Node*, ArenaAllocator<Node*>> b) : body(std::move(b)) { }
 
     std::string_view getName() const override {
         return "DoNode";
@@ -243,10 +244,10 @@ struct DoNode : Node {
 };
 
 struct WhileNode : Node {
-    std::unique_ptr<Node> condition;
-    std::vector<std::unique_ptr<Node>> body;
+    Node* condition;
+    std::vector<Node*, ArenaAllocator<Node*>> body;
 
-    WhileNode(std::unique_ptr<Node> c, std::vector<std::unique_ptr<Node>> b) 
+    WhileNode(Node* c, std::vector<Node*, ArenaAllocator<Node*>> b) 
         : condition(std::move(c)), body(std::move(b)) { } 
 
     std::string_view getName() const override {
@@ -256,13 +257,13 @@ struct WhileNode : Node {
 
 struct NumericForNode : Node {
     Token var;
-    std::unique_ptr<Node> start;
-    std::unique_ptr<Node> finish;
-    std::unique_ptr<Node> step;
-    std::vector<std::unique_ptr<Node>> body;
+    Node* start;
+    Node* finish;
+    Node* step;
+    std::vector<Node*, ArenaAllocator<Node*>> body;
 
-    NumericForNode(Token v, std::unique_ptr<Node> s, std::unique_ptr<Node> f,
-          std::unique_ptr<Node> st, std::vector<std::unique_ptr<Node>> b) 
+    NumericForNode(Token v, Node* s, Node* f,
+          Node* st, std::vector<Node*, ArenaAllocator<Node*>> b) 
     : var(std::move(v)), start(std::move(s)), finish(std::move(f)), step(std::move(st)), body(std::move(b)) { }
 
     std::string_view getName() const override {
@@ -271,11 +272,11 @@ struct NumericForNode : Node {
 };
 
 struct GenericForNode : Node {
-    std::vector<Token> keyArgs;
-    std::unique_ptr<Node> fn;
-    std::vector<std::unique_ptr<Node>> body;
+    std::vector<Node*, ArenaAllocator<Node*>> keyArgs;
+    Node* fn;
+    std::vector<Node*, ArenaAllocator<Node*>> body;
 
-    GenericForNode(std::vector<Token> ka, std::unique_ptr<Node> f, std::vector<std::unique_ptr<Node>> b) 
+    GenericForNode(std::vector<Node*, ArenaAllocator<Node*>> ka, Node* f, std::vector<Node*, ArenaAllocator<Node*>> b) 
     : keyArgs(std::move(ka)), fn(std::move(f)), body(std::move(b)) {}
 
     std::string_view getName() const override {
@@ -284,10 +285,10 @@ struct GenericForNode : Node {
 };
 
 struct RepeatUntilNode : Node {
-    std::unique_ptr<Node> condition;
-    std::vector<std::unique_ptr<Node>> body;
+    Node* condition;
+    std::vector<Node*, ArenaAllocator<Node*>> body;
 
-    RepeatUntilNode(std::unique_ptr<Node> c, std::vector<std::unique_ptr<Node>> b) 
+    RepeatUntilNode(Node* c, std::vector<Node*, ArenaAllocator<Node*>> b) 
         : condition(std::move(c)), body(std::move(b)) { } 
 
     std::string_view getName() const override {
@@ -299,10 +300,10 @@ struct FunctionNode : Node {
     Token value;
     bool isLocal = false;
 
-    std::vector<std::unique_ptr<Node>> args;
-    std::vector<std::unique_ptr<Node>> body;
+    std::vector<Node*, ArenaAllocator<Node*>> args;
+    std::vector<Node*, ArenaAllocator<Node*>> body;
 
-    FunctionNode(Token v, bool isL, std::vector<std::unique_ptr<Node>> a, std::vector<std::unique_ptr<Node>> b)
+    FunctionNode(Token v, bool isL, std::vector<Node*, ArenaAllocator<Node*>> a, std::vector<Node*, ArenaAllocator<Node*>> b)
     : value(std::move(v)), isLocal(isL), args(std::move(a)), body(std::move(b)) {}
     
     std::string_view getName() const override {
@@ -311,10 +312,10 @@ struct FunctionNode : Node {
 };
 
 struct AnonFunction : Node {
-    std::vector<std::unique_ptr<Node>> args;
-    std::vector<std::unique_ptr<Node>> body;
+    std::vector<Node*, ArenaAllocator<Node*>> args;
+    std::vector<Node*, ArenaAllocator<Node*>> body;
 
-    AnonFunction(std::vector<std::unique_ptr<Node>> a, std::vector<std::unique_ptr<Node>> b) 
+    AnonFunction(std::vector<Node*, ArenaAllocator<Node*>> a, std::vector<Node*, ArenaAllocator<Node*>> b) 
     : args(std::move(a)), body(std::move(b)) { }
 
     std::string_view getName() const override {
@@ -327,10 +328,10 @@ struct MethodNode : Node {
     Token className;
     bool isLocal = false;
     
-    std::vector<std::unique_ptr<Node>> args;
-    std::vector<std::unique_ptr<Node>> body;
+    std::vector<Node*, ArenaAllocator<Node*>> args;
+    std::vector<Node*, ArenaAllocator<Node*>> body;
 
-    MethodNode(Token v, Token cn, bool isL, std::vector<std::unique_ptr<Node>> a, std::vector<std::unique_ptr<Node>> b)
+    MethodNode(Token v, Token cn, bool isL, std::vector<Node*, ArenaAllocator<Node*>> a, std::vector<Node*, ArenaAllocator<Node*>> b)
     : value(std::move(v)), className(std::move(cn)), isLocal(isL), args(std::move(a)), body(std::move(b)) {}
 
     std::string_view getName() const override {
@@ -339,10 +340,10 @@ struct MethodNode : Node {
 };
 
 struct FunctionCallNode : Node {
-    std::unique_ptr<Node> callee;
-    std::vector<std::unique_ptr<Node>> args;
+    Node* callee;
+    std::vector<Node*, ArenaAllocator<Node*>> args;
 
-    FunctionCallNode(std::unique_ptr<Node> c, std::vector<std::unique_ptr<Node>> a) 
+    FunctionCallNode(Node* c, std::vector<Node*, ArenaAllocator<Node*>> a) 
         : callee(std::move(c)), args(std::move(a)) { }
 
     std::string_view getName() const override {
@@ -352,10 +353,10 @@ struct FunctionCallNode : Node {
 
 struct MethodCallNode : Node {
     Token method_name;
-    std::unique_ptr<Node> object_name;
-    std::vector<std::unique_ptr<Node>> args;
+    Node* object_name;
+    std::vector<Node*, ArenaAllocator<Node*>> args;
 
-    MethodCallNode(Token m, std::unique_ptr<Node> o, std::vector<std::unique_ptr<Node>> a) 
+    MethodCallNode(Token m, Node* o, std::vector<Node*, ArenaAllocator<Node*>> a) 
     : method_name(std::move(m)), object_name(std::move(o)), args(std::move(a)) {}
 
     std::string_view getName() const override {
@@ -364,9 +365,9 @@ struct MethodCallNode : Node {
 };
 
 struct ReturnNode : Node {
-    std::vector<std::unique_ptr<Node>> args;
+    std::vector<Node*, ArenaAllocator<Node*>> args;
 
-    ReturnNode(std::vector<std::unique_ptr<Node>> a) : args(std::move(a)) { }
+    ReturnNode(std::vector<Node*, ArenaAllocator<Node*>> a) : args(std::move(a)) { }
 
     std::string_view getName() const override {
         return "ReturnNode";
@@ -419,26 +420,26 @@ private:
      
     bool endblock();
     int  get_lbp(); 
-    std::unique_ptr<Node> nud(); 
-    std::unique_ptr<Node> parse_expr(int min_lbp);
+    Node* nud(); 
+    Node* parse_expr(int min_lbp);
 
-    std::unique_ptr<Node> parse_if();
-    std::unique_ptr<Node> parse_elseif();
-    std::unique_ptr<Node> parse_do();
-    std::unique_ptr<Node> parse_while();
-    std::unique_ptr<Node> parse_for();
-    std::unique_ptr<Node> parse_repeat();
-    std::unique_ptr<Node> parse_return();
-    std::unique_ptr<Node> parse_local();
-    std::unique_ptr<Node> parse_function(bool isLocal);
-    std::unique_ptr<Node> parse_ident();
-    std::unique_ptr<Node> parse_method(Token className, bool isLocal); 
+    Node* parse_if();
+    Node* parse_elseif();
+    Node* parse_do();
+    Node* parse_while();
+    Node* parse_for();
+    Node* parse_repeat();
+    Node* parse_return();
+    Node* parse_local();
+    Node* parse_function(bool isLocal);
+    Node* parse_ident();
+    Node* parse_method(Token className, bool isLocal); 
 
 public:
-    std::vector<std::unique_ptr<Node>> parse_block(); 
-    std::unique_ptr<Node> parse_stat();
+    std::vector<Node*, ArenaAllocator<Node*>> parse_block(); 
+    Node* parse_stat();
 
-    Parser(std::vector<Token> VectorOfTokens) : listOfTokens(VectorOfTokens) {}
+    Parser(std::vector<Token> VectorOfTokens) : listOfTokens(std::move(VectorOfTokens)) {}
 };
 
 #endif

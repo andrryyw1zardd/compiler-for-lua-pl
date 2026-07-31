@@ -3,6 +3,9 @@
 #include <format>
 #include <algorithm>
 
+Arena arena(1024 * 1024);
+ArenaAllocator<Node*> alloc(arena);
+
 Token Parser::peek() {
     if (index >= listOfTokens.size()) return Token{.type = Type::END_OF_FILE};
     return listOfTokens[index];
@@ -76,11 +79,11 @@ bool Parser::endblock() {
     return false;
 }
 
-std::unique_ptr<Node> Parser::parse_ident() {
-    std::vector<std::unique_ptr<Node>> left_side;
+Node* Parser::parse_ident() {
+    std::vector<Node*, ArenaAllocator<Node*>> left_side(alloc);
 
-    std::unique_ptr<Node> left = parse_expr(0);
-    left_side.push_back(std::move(left));
+    Node* left = parse_expr(0);
+    left_side.push_back(left);
 
     while (check(Type::COMMA)) {
         if (check(Type::COMMA)) advance();
@@ -90,10 +93,10 @@ std::unique_ptr<Node> Parser::parse_ident() {
 
     if (check(Type::EQUAL)) {
         advance();
-        std::vector<std::unique_ptr<Node>> right_side;
+        std::vector<Node*, ArenaAllocator<Node*>> right_side(alloc);
 
-        std::unique_ptr<Node> right = parse_expr(0);
-        right_side.push_back(std::move(right));
+        Node* right = parse_expr(0);
+        right_side.push_back(right);
 
         while (check(Type::COMMA)) {
             if (check(Type::COMMA)) advance();
@@ -101,19 +104,19 @@ std::unique_ptr<Node> Parser::parse_ident() {
             right_side.push_back(parse_expr(0));
         }
 
-        return std::make_unique<MultipleVariableNode>(Type::EQUAL, std::move(left_side), std::move(right_side));
+        return make<MultipleVariableNode>(alloc, 1, Type::EQUAL, std::move(left_side), std::move(right_side)); 
     }
 
     if (left_side.size() == 1 && 
        (left_side.front()->getName() == "FunctionCallNode" || 
         left_side.front()->getName() == "MethodCallNode"))
-        return std::move(left_side.front());
+        return left_side.front();
 
     throwError(Type::IDENT);
     return nullptr;
 }
 
-std::unique_ptr<Node> Parser::parse_local() {
+Node* Parser::parse_local() {
     advance();
     bool isConst = false;
 
@@ -129,14 +132,14 @@ std::unique_ptr<Node> Parser::parse_local() {
     }
 
     Token name = peek();
-    std::unique_ptr<Node> expr = nullptr;
+    Node* expr = nullptr;
 
-    std::vector<std::unique_ptr<Node>> left_side;
-    std::vector<std::unique_ptr<Node>> right_side;
+    std::vector<Node*, ArenaAllocator<Node*>> left_side(alloc);
+    std::vector<Node*, ArenaAllocator<Node*>> right_side(alloc);
 
     if (checkNext(Type::COMMA)) {
-        std::unique_ptr<Node> left = parse_expr(0);
-        left_side.push_back(std::move(left));
+        Node* left = parse_expr(0);
+        left_side.push_back(left);
 
         while (check(Type::COMMA)) {
             if (check(Type::COMMA)) advance();
@@ -146,8 +149,8 @@ std::unique_ptr<Node> Parser::parse_local() {
         if (check(Type::EQUAL)) {
             advance();
 
-            std::unique_ptr<Node> right = parse_expr(0);
-            right_side.push_back(std::move(right));
+            Node* right = parse_expr(0);
+            right_side.push_back(right);
 
             if (check(Type::COMMA)) {
                 while (check(Type::COMMA)) {
@@ -155,14 +158,14 @@ std::unique_ptr<Node> Parser::parse_local() {
                     right_side.push_back(parse_expr(0));
                 }
 
-                return std::make_unique<MultipleVariableNode>(
+                return make<MultipleVariableNode>(alloc, 1, 
                     Type::EQUAL,
                     std::move(left_side), 
                     std::move(right_side)
                 );
             }
             else {
-                return std::make_unique<MultipleVariableNode>(
+                return make<MultipleVariableNode>(alloc, 1, 
                     Type::EQUAL,
                     std::move(left_side),
                     std::move(right_side)
@@ -170,7 +173,7 @@ std::unique_ptr<Node> Parser::parse_local() {
             }
         }
         else {
-            return std::make_unique<MultipleVariableNode>(
+            return make<MultipleVariableNode>(alloc, 1, 
                 Type::EQUAL,
                 std::move(left_side),
                 std::move(right_side)
@@ -182,7 +185,7 @@ std::unique_ptr<Node> Parser::parse_local() {
         advance();
         expr = parse_expr(0);
 
-        return std::make_unique<DefineVariableNode>( std::move(name), std::move(expr) );
+        return make<DefineVariableNode>(alloc, 1, std::move(name), expr);
     }
     else if (checkNext(Type::LESS)) {
         advance();
@@ -200,10 +203,10 @@ std::unique_ptr<Node> Parser::parse_local() {
 
         auto right = parse_expr(0);
 
-        return std::make_unique<VarWithAttributeNode>(
+        return make<VarWithAttributeNode>(alloc, 1, 
             std::move(type),
             std::move(name),
-            std::move(right)
+            right
         );
     }
     if (isConst && !checkNext(Type::EQUAL)) {
@@ -211,45 +214,44 @@ std::unique_ptr<Node> Parser::parse_local() {
     }
     else advance();
 
-    return std::make_unique<DefineVariableNode>(
+    return make<DefineVariableNode>(alloc, 1, 
         std::move(name),
-        std::move(expr)
+        expr
     );
 }
 
-std::unique_ptr<Node> Parser::parse_do() {
+Node* Parser::parse_do() {
     advance();
 
-    auto body = parse_block();
+    std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
     expect(Type::KW_END);
 
-    return std::make_unique<DoNode>(std::move(body));
+    return make<DoNode>(alloc, 1, std::move(body));
 }
 
-std::unique_ptr<Node> Parser::parse_while() {
+Node* Parser::parse_while() {
     advance();
 
-    std::unique_ptr<Node> condition = parse_expr(0); 
+    Node* condition = parse_expr(0); 
 
     if (!check(Type::KW_DO)) throwError(Type::KW_DO);
     advance();
     
-    std::vector<std::unique_ptr<Node>> body = parse_block();
+    std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
     expect(Type::KW_END);
 
-    return std::make_unique<WhileNode>(
-        std::move(condition),
+    return make<WhileNode>(alloc, 1, 
+        condition,
         std::move(body) 
     );
 }
 
-
-std::unique_ptr<Node> Parser::parse_for() {
+Node* Parser::parse_for() {
     advance();
 
-    std::unique_ptr<Node> start;
-    std::unique_ptr<Node> finish;
-    std::unique_ptr<Node> step;
+    Node* start;
+    Node* finish;
+    Node* step = nullptr;
 
     if (!check(Type::IDENT)) { throwError(Type::IDENT); }
     Token var = peek();
@@ -257,26 +259,26 @@ std::unique_ptr<Node> Parser::parse_for() {
     advance();
 
     if (check(Type::COMMA) || check(Type::KW_IN)) {
-        std::vector<Token> keyArgs;
-        keyArgs.push_back(var);
+        std::vector<Node*, ArenaAllocator<Node*>> keyArgs(alloc);
+        keyArgs.push_back(make<VariableNode>(alloc, 1, var));
 
         while (check(Type::COMMA)) {
             advance();
-            keyArgs.push_back(advance());
+            keyArgs.push_back(make<VariableNode>(alloc, 1, advance()));
         }
 
         expect(Type::KW_IN);
 
-        std::unique_ptr<Node> iter_fn = parse_ident();
+        Node* iter_fn = parse_ident();
         if (!(iter_fn->getName() == "FunctionCallNode")) throwError(Type::CALLEDFUNCTION);
 
         expect(Type::KW_DO);
 
-        std::vector<std::unique_ptr<Node>> body = parse_block();
+        std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
         expect(Type::KW_END);
 
-        return std::make_unique<GenericForNode>(
-            std::move(keyArgs), std::move(iter_fn), std::move(body)
+        return make<GenericForNode>(alloc, 1, 
+            std::move(keyArgs), iter_fn, std::move(body)
         );
     }
 
@@ -294,77 +296,77 @@ std::unique_ptr<Node> Parser::parse_for() {
 
     expect(Type::KW_DO);
 
-    std::vector<std::unique_ptr<Node>> body = parse_block();
+    std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
     expect(Type::KW_END);
 
-    return std::make_unique<NumericForNode>(
-        std::move(var), std::move(start), std::move(finish), std::move(step),
+    return make<NumericForNode>(alloc, 1, 
+        std::move(var), start, finish, step,
         std::move(body) 
     );
 }
 
-std::unique_ptr<Node> Parser::parse_if() {
+Node* Parser::parse_if() {
     advance();
 
-    std::unique_ptr<Node> condition = parse_expr(0); 
+    Node* condition = parse_expr(0); 
 
     if (check(Type::KW_THEN)) {
         advance();
     } else throwError(Type::KW_THEN);
 
-    std::vector<std::unique_ptr<Node>> body = parse_block(); 
+    std::vector<Node*, ArenaAllocator<Node*>> body = parse_block(); 
 
-    std::vector<std::unique_ptr<Node>> elseifs;
+    std::vector<Node*, ArenaAllocator<Node*>> elseifs(alloc);
     while (peek().type == Type::KW_ELSEIF) {
         elseifs.push_back(parse_elseif());
     }
 
-    std::vector<std::unique_ptr<Node>> elseBody;
-    while (peek().type == Type::KW_ELSE) {
+    std::vector<Node*, ArenaAllocator<Node*>> elseBody(alloc);
+    if (peek().type == Type::KW_ELSE) {
         advance();
         elseBody = parse_block();
     }
 
     expect(Type::KW_END);
 
-    return std::make_unique<IfNode>(
-        std::move(condition),
+    return make<IfNode>(alloc, 1, 
+        condition,
         std::move(body), 
         std::move(elseifs),
         std::move(elseBody)
     );
 }
 
-std::unique_ptr<Node> Parser::parse_elseif() {
+Node* Parser::parse_elseif() {
     advance();
 
-    std::unique_ptr<Node> condition = parse_expr(0);
+    Node* condition = parse_expr(0);
 
     expect(Type::KW_THEN);
 
-    std::vector<std::unique_ptr<Node>> body = parse_block(); 
+    std::vector<Node*, ArenaAllocator<Node*>> body = parse_block(); 
 
-    return std::make_unique<ElseIfNode>(
-        std::move(condition),
+    return make<ElseIfNode>(alloc, 1, 
+        condition,
         std::move(body)
     );
 }
 
-std::unique_ptr<Node> Parser::parse_repeat() {
+Node* Parser::parse_repeat() {
     advance();
-    std::vector<std::unique_ptr<Node>> body = parse_block();
+    std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
 
     expect(Type::KW_UNTIL);
 
-    std::unique_ptr<Node> condition = parse_expr(0);
+    Node* condition = parse_expr(0);
 
-    return std::make_unique<RepeatUntilNode>(
-        std::move(condition), 
+    return make<RepeatUntilNode>(alloc, 1, 
+        condition, 
         std::move(body)
     );
 }
 
-std::unique_ptr<Node> Parser::parse_function(bool isLocal) {
+Node* Parser::parse_function(bool isLocal) {
     advance();
     
     if (!check(Type::IDENT)) {
@@ -373,11 +375,10 @@ std::unique_ptr<Node> Parser::parse_function(bool isLocal) {
 
     Token funcName = advance();
 
-    std::vector<std::unique_ptr<Node>> Args;
+    std::vector<Node*, ArenaAllocator<Node*>> Args(alloc);
 
     if (check(Type::L_PAREN)) {
         advance();
-        std::unique_ptr<Node> args;
 
         while (!check(Type::R_PAREN)) {
             Args.push_back(parse_expr(0));
@@ -394,10 +395,10 @@ std::unique_ptr<Node> Parser::parse_function(bool isLocal) {
         else throwError(Type::COLON);
     } 
     
-    std::vector<std::unique_ptr<Node>> body = parse_block(); 
+    std::vector<Node*, ArenaAllocator<Node*>> body = parse_block(); 
     expect(Type::KW_END);
 
-    return std::make_unique<FunctionNode>(
+    return make<FunctionNode>(alloc, 1, 
         std::move(funcName),
         isLocal,
         std::move(Args),
@@ -405,9 +406,9 @@ std::unique_ptr<Node> Parser::parse_function(bool isLocal) {
     );
 }
 
-std::unique_ptr<Node> Parser::parse_method(Token className, bool isLocal) {
+Node* Parser::parse_method(Token className, bool isLocal) {
     Token methodName = advance();
-    std::vector<std::unique_ptr<Node>> args;
+    std::vector<Node*, ArenaAllocator<Node*>> args(alloc);
 
     if (check(Type::L_PAREN)) {
         advance();
@@ -423,10 +424,10 @@ std::unique_ptr<Node> Parser::parse_method(Token className, bool isLocal) {
     }
     else throwError(Type::L_PAREN);
     
-    std::vector<std::unique_ptr<Node>> body = parse_block(); 
+    std::vector<Node*, ArenaAllocator<Node*>> body = parse_block(); 
     expect(Type::KW_END);
 
-    return std::make_unique<MethodNode>(
+    return make<MethodNode>(alloc, 1, 
         std::move(methodName),
         std::move(className),
         isLocal,
@@ -435,16 +436,16 @@ std::unique_ptr<Node> Parser::parse_method(Token className, bool isLocal) {
     );
 }
 
-std::unique_ptr<Node> Parser::parse_return() {
+Node* Parser::parse_return() {
     advance();
-    std::vector<std::unique_ptr<Node>> args;
+    std::vector<Node*, ArenaAllocator<Node*>> args(alloc);
 
     while (!endblock()) {
         if (check(Type::KW_FUNCTION)) {
             advance();
             expect(Type::L_PAREN);
 
-            std::vector<std::unique_ptr<Node>> innerArgs;
+            std::vector<Node*, ArenaAllocator<Node*>> innerArgs(alloc);
 
             while (!check(Type::R_PAREN)) {
                 innerArgs.push_back(parse_expr(0));
@@ -455,10 +456,10 @@ std::unique_ptr<Node> Parser::parse_return() {
 
             expect(Type::R_PAREN);
 
-            std::vector<std::unique_ptr<Node>> body = parse_block();
+            std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
             expect(Type::KW_END);
 
-            return std::make_unique<AnonFunction>(
+            return make<AnonFunction>(alloc, 1, 
                 std::move(innerArgs), std::move(body)
             );
         }
@@ -469,23 +470,23 @@ std::unique_ptr<Node> Parser::parse_return() {
         else break;
     }
 
-    return std::make_unique<ReturnNode>(std::move(args));
+    return make<ReturnNode>(alloc, 1, std::move(args));
 }
 
-std::vector<std::unique_ptr<Node>> Parser::parse_block() {
-    std::vector<std::unique_ptr<Node>> block;
+std::vector<Node*, ArenaAllocator<Node*>> Parser::parse_block() {
+    std::vector<Node*, ArenaAllocator<Node*>> block(alloc);
 
     while (!endblock() && !check(Type::END_OF_FILE)) {
-        std::unique_ptr<Node> statement = parse_stat(); 
+        Node* statement = parse_stat(); 
         if (statement) {
-            block.push_back(std::move(statement)); 
+            block.push_back(statement); 
         }
     }
 
     return block;
 }
 
-std::unique_ptr<Node> Parser::parse_stat() {
+Node* Parser::parse_stat() {
     switch (peek().type) {
         case Type::KW_LOCAL:
             return parse_local();
@@ -522,39 +523,39 @@ std::unique_ptr<Node> Parser::parse_stat() {
 
 int Parser::get_lbp() {
     switch (peek().type) {
-        case Type::KW_OR:         return 10;
-        case Type::KW_AND:        return 20;
+        case Type::KW_OR:          return 10;
+        case Type::KW_AND:         return 20;
         case Type::VERTICAL_BAR:  return 30;
-        case Type::TILDE:         return 30;
+        case Type::TILDE:          return 30;
         case Type::AMPERSAND:     return 30;
-        case Type::L_SHIFT:       return 30;
-        case Type::R_SHIFT:       return 30;
+        case Type::L_SHIFT:        return 30;
+        case Type::R_SHIFT:        return 30;
         case Type::EQUAL_EQUAL:   return 40;
         case Type::NOT_EQUAL:     return 40;
-        case Type::GREATER:       return 50;
+        case Type::GREATER:        return 50;
         case Type::GREATER_EQUAL: return 50;
-        case Type::LESS:          return 50;
+        case Type::LESS:           return 50;
         case Type::LESS_EQUAL:    return 50;
-        case Type::CONCAT:        return 60;
-        case Type::PLUS:          return 70;
-        case Type::MINUS:         return 70;
-        case Type::PERCENT:       return 80;
+        case Type::CONCAT:         return 60;
+        case Type::PLUS:           return 70;
+        case Type::MINUS:          return 70;
+        case Type::PERCENT:        return 80;
         case Type::DOUBLE_SLASH:  return 80;
-        case Type::SLASH:         return 80;
-        case Type::CARET:         return 90;
+        case Type::SLASH:          return 80;
+        case Type::CARET:          return 90;
         case Type::STAR:
             if (checkNext(Type::STAR)) return 90;
             return 80;
-        case Type::NOT:           return 100;
-        case Type::DOT:           return 110;
-        case Type::L_PAREN:       return 110;
+        case Type::NOT:            return 100;
+        case Type::DOT:            return 110;
+        case Type::L_PAREN:        return 110;
         case Type::L_BRACKET:     return 110;
-        case Type::COLON:         return 110;
+        case Type::COLON:          return 110;
         default: return 0;
     }
 }
 
-std::unique_ptr<Node> Parser::nud() {
+Node* Parser::nud() {
     if (check(Type::LIT_INT) || check(Type::LIT_FLOAT) || check(Type::LIT_STRING)
         || check(Type::KW_TRUE) || check(Type::KW_FALSE) || check(Type::LIT_LONG_STRING)
         || check(Type::LIT_HEX) || check(Type::LIT_CHAR) || check(Type::ELLIPSIS) 
@@ -563,14 +564,14 @@ std::unique_ptr<Node> Parser::nud() {
         Token value = peek();
         advance();
 
-        return std::make_unique<BasicDataNode>(std::move(value));
+        return make<BasicDataNode>(alloc, 1, std::move(value));
     }
     else if (std::ranges::find(UnaryOpSet, peek().type) != UnaryOpSet.end()) {
         Token op = advance();
 
         auto val = parse_expr(90);
 
-        return std::make_unique<UnaryOpNode>(std::move(op), std::move(val));
+        return make<UnaryOpNode>(alloc, 1, std::move(op), val);
     }
     else if (check(Type::L_PAREN)) {
         advance();
@@ -582,14 +583,14 @@ std::unique_ptr<Node> Parser::nud() {
     }
     else if (check(Type::L_BRACE)) {
         advance();
-        std::vector<std::unique_ptr<Node>> elements;
+        std::vector<Node*, ArenaAllocator<Node*>> elements(alloc);
 
         while (!check(Type::R_BRACE)) {
             if (check(Type::L_BRACKET)) {
                 advance();
 
                 auto index_expr = parse_expr(0);
-                auto index = std::make_unique<IndexNode>(std::move(index_expr));
+                auto index = make<IndexNode>(alloc, 1, index_expr);
 
                 expect(Type::R_BRACKET);
 
@@ -598,41 +599,41 @@ std::unique_ptr<Node> Parser::nud() {
 
                     auto value = parse_expr(0);
 
-                    elements.push_back(std::make_unique<TableFieldNode>(
-                        std::move(index), std::move(value)));
+                    elements.push_back(make<TableFieldNode>(alloc, 1, 
+                        index, value));
                 }
-                else elements.push_back(std::move(index));
+                else elements.push_back(index);
             }
-            else { // for any other case
+            else { 
                 auto key = parse_expr(0);
 
                 if (check(Type::EQUAL)) {
                     advance();
                     auto value = parse_expr(0);
 
-                    elements.push_back(std::make_unique<TableFieldNode>(
-                        std::move(key), std::move(value)));
+                    elements.push_back(make<TableFieldNode>(alloc, 1, 
+                        key, value));
                 }
-                else elements.push_back(std::move(key));
+                else elements.push_back(key);
             }
 
             if (check(Type::COMMA)) advance();
         } 
         expect(Type::R_BRACE);
 
-        return std::make_unique<ArrayNode>(std::move(elements));
+        return make<ArrayNode>(alloc, 1, std::move(elements));
     }
     else if (check(Type::IDENT)) {
         Token value = peek();
         advance();
 
-        return std::make_unique<VariableNode>(std::move(value));
+        return make<VariableNode>(alloc, 1, std::move(value));
     }
     else if (check(Type::KW_FUNCTION)) {
         advance();
         expect(Type::L_PAREN);
 
-        std::vector<std::unique_ptr<Node>> innerArgs;
+        std::vector<Node*, ArenaAllocator<Node*>> innerArgs(alloc);
 
         while (!check(Type::R_PAREN)) {
             innerArgs.push_back(parse_expr(0));
@@ -646,19 +647,20 @@ std::unique_ptr<Node> Parser::nud() {
 
         expect(Type::R_PAREN);
 
-        std::vector<std::unique_ptr<Node>> body = parse_block();
+        std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
         expect(Type::KW_END);
 
-        return std::make_unique<AnonFunction>(
+        return make<AnonFunction>(alloc, 1, 
             std::move(innerArgs), std::move(body)
         );
     }
 
     throwError(Type::IDENT);
+    return nullptr;
 }
 
-std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
-    std::unique_ptr<Node> left = nud(); 
+Node* Parser::parse_expr(int min_lbp) {
+    Node* left = nud(); 
     
     while (true) {
         int lbp = get_lbp();
@@ -669,11 +671,11 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
         if (op == Type::STAR && peekNext().type == Type::STAR) {
             advance(); advance();
 
-            std::unique_ptr<Node> right = parse_expr(lbp - 1); 
-            left = std::make_unique<BinaryOpNode>(
+            Node* right = parse_expr(lbp - 1); 
+            left = make<BinaryOpNode>(alloc, 1, 
                 op,
-                std::move(left),
-                std::move(right)
+                left,
+                right
             );
 
             continue;
@@ -682,12 +684,12 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
         if (op == Type::CONCAT) {
             advance();
 
-            std::unique_ptr<Node> right = parse_expr(lbp - 1); 
+            Node* right = parse_expr(lbp - 1); 
 
-            left = std::make_unique<BinaryOpNode>(
+            left = make<BinaryOpNode>(alloc, 1, 
                 op,
-                std::move(left),
-                std::move(right)
+                left,
+                right
             );
             continue;
         }
@@ -698,14 +700,14 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
             if (!check(Type::IDENT)) throwError(Type::IDENT);
             Token q = advance();
 
-            left = std::make_unique<MemberAccessNode>(std::move(left), std::move(q));
+            left = make<MemberAccessNode>(alloc, 1, left, std::move(q));
             continue;
         }
 
         if (op == Type::L_PAREN) {
             advance(); 
 
-            std::vector<std::unique_ptr<Node>> args;
+            std::vector<Node*, ArenaAllocator<Node*>> args(alloc);
 
             while (!check(Type::R_PAREN)) {
                 args.push_back(parse_expr(0));
@@ -715,8 +717,8 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
 
             expect(Type::R_PAREN); 
 
-            left = std::make_unique<FunctionCallNode>(
-                std::move(left),
+            left = make<FunctionCallNode>(alloc, 1, 
+                left,
                 std::move(args)
             );
             continue;
@@ -726,7 +728,7 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
             advance();
             Token method_name = advance();
 
-            std::vector<std::unique_ptr<Node>> args;
+            std::vector<Node*, ArenaAllocator<Node*>> args(alloc);
             expect(Type::L_PAREN);
 
             while (!check(Type::R_PAREN)) {
@@ -736,24 +738,23 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
 
             expect(Type::R_PAREN); 
 
-            left = std::make_unique<MethodCallNode>(
+            left = make<MethodCallNode>(alloc, 1, 
                 std::move(method_name), 
-                std::move(left),
+                left,
                 std::move(args)
             );
             continue;
         }
 
-        // can parse only a[i] but not a[i][j] and so on
         if (op == Type::L_BRACKET) {
             advance();
 
             auto index_expr = parse_expr(lbp);
             expect(Type::R_BRACKET);
 
-            left = std::make_unique<ExprWithIndexNode>(
-                std::move(left),
-                std::move(index_expr)
+            left = make<ExprWithIndexNode>(alloc, 1, 
+                left,
+                index_expr
             );
             continue;
         }
@@ -762,9 +763,9 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
             advance();
             auto right = parse_expr(lbp);
 
-            left = std::make_unique<AndTernaryNode>(
-                std::move(left),
-                std::move(right)
+            left = make<AndTernaryNode>(alloc, 1, 
+                left,
+                right
             );
             continue;
         }
@@ -773,9 +774,9 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
             advance();
             auto right = parse_expr(lbp);
 
-            left = std::make_unique<OrTernaryNode>(
-                std::move(left),
-                std::move(right)
+            left = make<OrTernaryNode>(alloc, 1, 
+                left,
+                right
             );
             continue;
         }
@@ -784,10 +785,10 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
             advance();
             auto right = parse_expr(lbp);
 
-            left = std::make_unique<BitwiseNode>(
-                std::move(op),
-                std::move(left),
-                std::move(right)
+            left = make<BitwiseNode>(alloc, 1, 
+                op,
+                left,
+                right
             );
             continue;
         }
@@ -795,12 +796,12 @@ std::unique_ptr<Node> Parser::parse_expr(int min_lbp) {
         if (lbp > 0) {
             advance();
 
-            std::unique_ptr<Node> right = parse_expr(lbp);
+            Node* right = parse_expr(lbp);
 
-            left = std::make_unique<BinaryOpNode>(
+            left = make<BinaryOpNode>(alloc, 1, 
                 op,
-                std::move(left),
-                std::move(right)
+                left,
+                right
             );
         }
         else break;

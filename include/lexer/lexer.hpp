@@ -74,7 +74,7 @@ private:
         return table;
     }();
 
-    static inline std::unordered_map<std::string, Type> keywordMap = {
+    static inline std::unordered_map<std::string_view, Type> keywordMap = {
         {"local",    Type::KW_LOCAL},
         {"const",    Type::KW_CONST},
         {"close",    Type::KW_CLOSE},

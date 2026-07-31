@@ -14,6 +14,7 @@ add_executable(
     main.cpp
     src/lexer/lexer.cpp
     src/parser/parser.cpp
+    src/allocator/alloc.cpp
 )
 
 target_include_directories(lua++ PRIVATE include)
