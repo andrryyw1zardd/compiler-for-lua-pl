@@ -2,8 +2,8 @@
 #include <vector>          // included for std::vector<Token> tokenize() in class Lexer 
 #include <unordered_map>   // included for std::unordered_map<char, Type> operationMap in class Lexer 
 #include <stdbool.h>       // included for bool match(char expected) in class Lexer 
-#include <variant>
-#include <array>
+#include <variant>         // included for std::variant<std::monostate, ...> 
+#include <array>           // included for std::array
 
 #ifndef LEXER_HPP
 #define LEXER_HPP

@@ -12,6 +12,7 @@ endif()
 add_executable(
     lua++
     main.cpp
+    src/sema/sema.cpp
     src/lexer/lexer.cpp
     src/parser/parser.cpp
     src/allocator/alloc.cpp

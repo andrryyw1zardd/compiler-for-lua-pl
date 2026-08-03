@@ -3,8 +3,8 @@
 #include <vector>             // INCLUDED FOR std::vector<Token>
 #include "lexer/lexer.hpp"    // INCLUDED FOR class Lexer, tokenize() 
 #include "parser/parser.hpp"  // INCLUDED FOR class Parser, parse_block()
-#include <chrono>
-#include <iostream>
+#include <chrono>             // INCLUDED FOR high_resolution_clock::now() and duration_cast<microseconds>().count()
+#include <iostream>           // INCLUDED FOR std::cerr
 
 int main([[maybe_unused]]int argc, char** args) {
     std::string sourceCode;

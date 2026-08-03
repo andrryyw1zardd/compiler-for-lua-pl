@@ -35,11 +35,6 @@ public:
     }
 
     template <typename U>
-    struct rebind {
-        using other = ArenaAllocator<U>;
-    };
-
-    template <typename U>
     U* alloc_as(size_t how_much) {
         return reinterpret_cast<U*>(
             arena->allocate(how_much * sizeof(U), alignof(U))
@@ -48,9 +43,7 @@ public:
 
     void deallocate(T*, size_t) {}
 
-    friend bool operator==(const ArenaAllocator& a, const ArenaAllocator& b) noexcept {
-        return a.arena == b.arena;
-    }
+    friend bool operator==(const ArenaAllocator& a, const ArenaAllocator& b) = default;
 };
 
 template <typename T, typename Alloc, typename... Args>

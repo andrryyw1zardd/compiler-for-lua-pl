@@ -27,30 +27,6 @@ struct UnaryOpNode : Node {
     }
 };
 
-struct AndTernaryNode : Node {
-    Node* left;
-    Node* right;
-
-    AndTernaryNode(Node* l, Node* r) 
-    : left(std::move(l)), right(std::move(r)) { }
-
-    std::string_view getName() const override {
-        return "AndTernaryNode";
-    }
-};
-
-struct OrTernaryNode : Node {
-    Node* left;
-    Node* right;
-
-    OrTernaryNode(Node* l, Node* r) 
-    : left(std::move(l)), right(std::move(r)) { }
-
-    std::string_view getName() const override {
-        return "OrTernaryNode";
-    }
-};
-
 struct BinaryOpNode : Node {
     Type op;
 
@@ -147,6 +123,30 @@ struct MultipleVariableNode : Node {
 
     std::string_view getName() const override {
         return "MultipleVariableNode";
+    }
+};
+
+struct AndTernaryNode : Node {
+    Node* left;
+    Node* right;
+
+    AndTernaryNode(Node* l, Node* r) 
+    : left(std::move(l)), right(std::move(r)) { }
+
+    std::string_view getName() const override {
+        return "AndTernaryNode";
+    }
+};
+
+struct OrTernaryNode : Node {
+    Node* left;
+    Node* right;
+
+    OrTernaryNode(Node* l, Node* r) 
+    : left(std::move(l)), right(std::move(r)) { }
+
+    std::string_view getName() const override {
+        return "OrTernaryNode";
     }
 };
 
