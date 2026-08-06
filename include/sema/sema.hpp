@@ -1,9 +1,52 @@
 #ifndef SEMA_HPP
 #define SEMA_HPP
 
-#include "parser/parser.hpp"
 #include <vector>
 #include <memory>
+#include <unordered_map>
+
+struct Node;
+struct UnaryOpNode;
+struct BinaryOpNode;
+struct BitwiseNode;
+struct MemberAccessNode;
+struct BasicDataNode;
+struct VariableNode;
+struct VarWithAttributeNode;
+struct DefineVariableNode;
+struct MultipleVariableNode;
+struct AndTernaryNode;
+struct OrTernaryNode;
+struct ArrayNode;
+struct ExprWithIndexNode;
+struct IndexNode;
+struct XORNode;
+struct TableFieldNode;
+struct IfNode;
+struct ElseIfNode;
+struct DoNode;
+struct WhileNode;
+struct NumericForNode;
+struct GenericForNode;
+struct RepeatUntilNode;
+struct FunctionNode;
+struct AnonFunction;
+struct MethodNode;
+struct FunctionCallNode;
+struct MethodCallNode;
+struct ReturnNode;
+
+class DiagnosticEngine {
+private:
+    std::vector<std::string> diag_vect_;
+
+public:
+    enum class DiagType { ERROR, WARNING };
+    void collect_diags(const std::string&,
+                       const std::string&, 
+                       const DiagType&,
+                       const Node*);
+};
 
 struct Symbol {
     enum class Kind { GLOBAL, PARAM, LOCAL, UPVALUE };
@@ -23,21 +66,8 @@ public:
 
     void add_into_symbols(const std::string&, const Symbol&);
     bool has_locally(const std::string& name) const;
-    Symbol* lookup(const std::string& name);
+    Symbol* lookup(const std::string& name, DiagnosticEngine& de);
     ScopeStack* get_parent();
-};
-
-
-class DiagnosticEngine {
-private:
-    std::vector<std::string> diag_vect_;
-
-public:
-    enum class DiagType {ERROR, WARNING};
-    void collect_diags(const std::string&,
-                       const std::string&, 
-                       const DiagType&,
-                       const Node*);
 };
  
 class Visitor {
@@ -84,6 +114,8 @@ public:
     SemanticAnalyzer(DiagnosticEngine& d) : diags_(d) { 
         scopes_.push_back(std::make_unique<ScopeStack>(nullptr));
     }
+
+    void visit(DefineVariableNode*) override final;
 };
 
 #endif

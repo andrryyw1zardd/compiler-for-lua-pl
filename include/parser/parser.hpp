@@ -7,12 +7,16 @@
 #include <array>
 #include <vector>
 #include "allocator/alloc.hpp"
+#include "sema/sema.hpp"
+
+class Visitor;
 
 struct Node {
     Vect2 position;
 
     virtual ~Node() = default;
     virtual std::string_view getName() const = 0;
+    virtual void accept(Visitor& v) = 0;
 };
 
 struct UnaryOpNode : Node {
@@ -24,6 +28,10 @@ struct UnaryOpNode : Node {
 
     std::string_view getName() const override {
         return "UnaryOpNode";
+    }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
     }
 };
 
@@ -39,6 +47,10 @@ struct BinaryOpNode : Node {
     std::string_view getName() const override {
         return "BinaryOpNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct BitwiseNode : Node {
@@ -53,6 +65,10 @@ struct BitwiseNode : Node {
     std::string_view getName() const override {
         return "BitwiseNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct MemberAccessNode : Node {
@@ -65,6 +81,10 @@ struct MemberAccessNode : Node {
     std::string_view getName() const override {
         return "MemberAccessNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct BasicDataNode : Node {
@@ -75,6 +95,10 @@ struct BasicDataNode : Node {
     std::string_view getName() const override {
         return "BasicDataNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct VariableNode : Node {
@@ -84,6 +108,10 @@ struct VariableNode : Node {
 
     std::string_view getName() const override {
         return "VariableNode";
+    }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
     }
 };
 
@@ -98,11 +126,14 @@ struct VarWithAttributeNode : Node {
     std::string_view getName() const override {
         return "VarWithAttributeNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct DefineVariableNode : Node {
     Token value;
-
     Node* right;
 
     DefineVariableNode(Token v, Node* r)
@@ -110,6 +141,10 @@ struct DefineVariableNode : Node {
 
     std::string_view getName() const override {
         return "DefineVariableNode";
+    }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
     }
 };
 
@@ -124,6 +159,10 @@ struct MultipleVariableNode : Node {
     std::string_view getName() const override {
         return "MultipleVariableNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct AndTernaryNode : Node {
@@ -135,6 +174,10 @@ struct AndTernaryNode : Node {
 
     std::string_view getName() const override {
         return "AndTernaryNode";
+    }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
     }
 };
 
@@ -148,6 +191,10 @@ struct OrTernaryNode : Node {
     std::string_view getName() const override {
         return "OrTernaryNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct ArrayNode : Node {
@@ -157,6 +204,10 @@ struct ArrayNode : Node {
 
     std::string_view getName() const override {
         return "ArrayNode";
+    }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
     }
 };
 
@@ -170,6 +221,10 @@ struct ExprWithIndexNode : Node {
     std::string_view getName() const override {
         return "ExprWithIndexNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct IndexNode : Node {
@@ -179,6 +234,10 @@ struct IndexNode : Node {
 
     std::string_view getName() const override {
         return "IndexNode";
+    }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
     }
 };
 
@@ -192,6 +251,10 @@ struct XORNode : Node {
     std::string_view getName() const override {
         return "XORNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct TableFieldNode : Node {
@@ -203,6 +266,10 @@ struct TableFieldNode : Node {
 
     std::string_view getName() const override {
         return "TableFieldNode"; 
+    }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
     }
 };
 
@@ -219,6 +286,10 @@ struct IfNode : Node {
     std::string_view getName() const override {
         return "IfNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct ElseIfNode : Node {
@@ -231,6 +302,10 @@ struct ElseIfNode : Node {
     std::string_view getName() const override {
         return "ElseIfNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct DoNode : Node {
@@ -240,6 +315,10 @@ struct DoNode : Node {
 
     std::string_view getName() const override {
         return "DoNode";
+    }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
     }
 };
 
@@ -252,6 +331,10 @@ struct WhileNode : Node {
 
     std::string_view getName() const override {
         return "WhileNode";
+    }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
     }
 };
 
@@ -269,6 +352,10 @@ struct NumericForNode : Node {
     std::string_view getName() const override {
         return "NumericForNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct GenericForNode : Node {
@@ -282,6 +369,10 @@ struct GenericForNode : Node {
     std::string_view getName() const override {
         return "GenericForNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct RepeatUntilNode : Node {
@@ -293,6 +384,10 @@ struct RepeatUntilNode : Node {
 
     std::string_view getName() const override {
         return "RepeatUntilNode";
+    }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
     }
 };
 
@@ -309,6 +404,10 @@ struct FunctionNode : Node {
     std::string_view getName() const override {
         return "FunctionNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct AnonFunction : Node {
@@ -320,6 +419,10 @@ struct AnonFunction : Node {
 
     std::string_view getName() const override {
         return "AnonFunction";
+    }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
     }
 };
 
@@ -337,6 +440,10 @@ struct MethodNode : Node {
     std::string_view getName() const override {
         return "MethodNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct FunctionCallNode : Node {
@@ -348,6 +455,10 @@ struct FunctionCallNode : Node {
 
     std::string_view getName() const override {
         return "FunctionCallNode";
+    }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
     }
 };
 
@@ -362,6 +473,10 @@ struct MethodCallNode : Node {
     std::string_view getName() const override {
         return "MethodCallNode";
     }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
 };
 
 struct ReturnNode : Node {
@@ -371,6 +486,10 @@ struct ReturnNode : Node {
 
     std::string_view getName() const override {
         return "ReturnNode";
+    }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
     }
 };
 

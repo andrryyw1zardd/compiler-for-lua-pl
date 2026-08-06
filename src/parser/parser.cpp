@@ -187,7 +187,7 @@ Node* Parser::parse_local() {
         advance();
         expr = parse_expr(0);
 
-        return make<DefineVariableNode>(alloc, 1, std::move(name), expr);
+        return make<DefineVariableNode>(alloc, 1, std::move(name), std::move(expr));
     }
     else if (checkNext(Type::LESS)) {
         advance();
@@ -208,7 +208,7 @@ Node* Parser::parse_local() {
         return make<VarWithAttributeNode>(alloc, 1, 
             std::move(type),
             std::move(name),
-            right
+            std::move(right)
         );
     }
     if (isConst && !checkNext(Type::EQUAL)) {
@@ -218,7 +218,7 @@ Node* Parser::parse_local() {
 
     return make<DefineVariableNode>(alloc, 1, 
         std::move(name),
-        expr
+        std::move(expr)
     );
 }
 
@@ -243,7 +243,7 @@ Node* Parser::parse_while() {
     expect(Type::KW_END);
 
     return make<WhileNode>(alloc, 1, 
-        condition,
+        std::move(condition),
         std::move(body) 
     );
 }
@@ -280,7 +280,7 @@ Node* Parser::parse_for() {
         expect(Type::KW_END);
 
         return make<GenericForNode>(alloc, 1, 
-            std::move(keyArgs), iter_fn, std::move(body)
+            std::move(keyArgs), std::move(iter_fn), std::move(body)
         );
     }
 
@@ -302,8 +302,8 @@ Node* Parser::parse_for() {
     expect(Type::KW_END);
 
     return make<NumericForNode>(alloc, 1, 
-        std::move(var), start, finish, step,
-        std::move(body) 
+        std::move(var), std::move(start),
+        std::move(finish), std::move(step), std::move(body) 
     );
 }
 
@@ -349,7 +349,7 @@ Node* Parser::parse_elseif() {
     std::vector<Node*, ArenaAllocator<Node*>> body = parse_block(); 
 
     return make<ElseIfNode>(alloc, 1, 
-        condition,
+        std::move(condition),
         std::move(body)
     );
 }
@@ -363,7 +363,7 @@ Node* Parser::parse_repeat() {
     Node* condition = parse_expr(0);
 
     return make<RepeatUntilNode>(alloc, 1, 
-        condition, 
+        std::move(condition), 
         std::move(body)
     );
 }
@@ -392,7 +392,7 @@ Node* Parser::parse_function(bool isLocal) {
     else {
         if (check(Type::DOT) || check(Type::COLON)) {
             advance();
-            return parse_method(funcName, isLocal); 
+            return parse_method(std::move(funcName), std::move(isLocal)); 
         }
         else throwError(Type::COLON);
     } 
@@ -402,7 +402,7 @@ Node* Parser::parse_function(bool isLocal) {
 
     return make<FunctionNode>(alloc, 1, 
         std::move(funcName),
-        isLocal,
+        std::move(isLocal),
         std::move(Args),
         std::move(body)
     );
@@ -432,7 +432,7 @@ Node* Parser::parse_method(Token className, bool isLocal) {
     return make<MethodNode>(alloc, 1, 
         std::move(methodName),
         std::move(className),
-        isLocal,
+        std::move(isLocal),
         std::move(args),
         std::move(body)
     );
@@ -573,7 +573,7 @@ Node* Parser::nud() {
 
         auto val = parse_expr(90);
 
-        return make<UnaryOpNode>(alloc, 1, std::move(op), val);
+        return make<UnaryOpNode>(alloc, 1, std::move(op), std::move(val));
     }
     else if (check(Type::L_PAREN)) {
         advance();
