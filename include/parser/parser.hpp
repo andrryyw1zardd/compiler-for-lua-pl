@@ -9,8 +9,6 @@
 #include "allocator/alloc.hpp"
 #include "sema/sema.hpp"
 
-class Visitor;
-
 struct Node {
     Vect2 position;
 

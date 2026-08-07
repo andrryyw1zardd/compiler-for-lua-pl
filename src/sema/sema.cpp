@@ -1,23 +1,24 @@
 #include "sema/sema.hpp"
 #include "parser/parser.hpp"
 #include <format>
+#include <cassert>
 
-void ScopeStack::add_into_symbols(const std::string& name, const Symbol& symbol) {
-    symbols_[name] = symbol;
+void Scope::add_into_symbols(const std::string& name, const Symbol& symbol) {
+    variables_[name] = symbol;
 }
 
-bool ScopeStack::has_locally(const std::string& name) const {
-    return symbols_.find(name) != symbols_.end();
+bool Scope::has_locally(const std::string& name) const {
+    return variables_.find(name) != variables_.end();
 }
 
-ScopeStack* ScopeStack::get_parent() {
+Scope* Scope::get_parent() {
     return this->parent_;
 }
 
-Symbol* ScopeStack::lookup(const std::string& name, DiagnosticEngine& de) {
-    auto itValue = symbols_.find(name);
+Symbol* Scope::lookup(const std::string& name, DiagnosticEngine& de) {
+    auto itValue = variables_.find(name);
 
-    if (itValue != symbols_.end()) {
+    if (itValue != variables_.end()) {
         return &itValue->second;
     }
 
@@ -36,16 +37,35 @@ void DiagnosticEngine::collect_diags(
 {
     std::string diag_str;
 
-    if (diag == DiagType::ERROR) diag_str = "Error";
-    else diag_str = "Warning";
+    if (diag == DiagType::ERROR) diag_str = "error";
+    else diag_str = "warning";
 
-    std::string formated_mes = std::format("[{}] {} - {} at line {}, column {}.", 
+    std::string formated_mes = std::format("[{}] {} - '{}' at line {}, column {}.", 
                                            diag_str,
                                            message, name, 
                                            node->position.y,
                                            node->position.x);
 
     diag_vect_.push_back(formated_mes);
+}
+
+void SemanticAnalyzer::makeScope() {
+    auto scope = std::make_unique<Scope>(
+        scopes_.back().get());
+
+    scopes_.push_back(std::move(scope));
+}
+
+void SemanticAnalyzer::removeScope() {
+    assert(scopes_.back()->get_parent() != nullptr);
+    scopes_.pop_back();
+}
+
+// by returning raw pointer of Scope, 
+// I forse myself to work with current scope,
+// without having opportunity to deleting it.
+Scope* SemanticAnalyzer::currentScope() {
+    return scopes_.back().get();
 }
 
 void SemanticAnalyzer::visit(DefineVariableNode* vNode) {

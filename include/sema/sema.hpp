@@ -55,19 +55,20 @@ struct Symbol {
     Node* node_ = nullptr;
 };
 
-class ScopeStack {
+class Scope {
 private:
-    ScopeStack* parent_ = nullptr;
-    std::unordered_map<std::string, Symbol> symbols_;
+    Scope* parent_ = nullptr;
+    std::unordered_map<std::string, Symbol> variables_;
+    // need to add some more for other things 
 
 public:
-    explicit ScopeStack(ScopeStack* p) : parent_(p) { } 
-    ~ScopeStack() = default;
+    explicit Scope(Scope* p) : parent_(p) { } 
+    ~Scope() = default;
 
     void add_into_symbols(const std::string&, const Symbol&);
     bool has_locally(const std::string& name) const;
     Symbol* lookup(const std::string& name, DiagnosticEngine& de);
-    ScopeStack* get_parent();
+    Scope* get_parent();
 };
  
 class Visitor {
@@ -107,15 +108,18 @@ public:
 
 class SemanticAnalyzer : public Visitor {
 private:
-    std::vector<std::unique_ptr<ScopeStack>> scopes_;
+    std::vector<std::unique_ptr<Scope>> scopes_;
     DiagnosticEngine& diags_;
 
 public:
     SemanticAnalyzer(DiagnosticEngine& d) : diags_(d) { 
-        scopes_.push_back(std::make_unique<ScopeStack>(nullptr));
+        scopes_.push_back(std::make_unique<Scope>(nullptr));
     }
 
     void visit(DefineVariableNode*) override final;
+    void makeScope(); 
+    void removeScope();
+    Scope* currentScope();
 };
 
 #endif
