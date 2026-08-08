@@ -5,36 +5,16 @@
 #include <memory>
 #include <unordered_map>
 
-struct Node;
-struct UnaryOpNode;
-struct BinaryOpNode;
-struct BitwiseNode;
-struct MemberAccessNode;
-struct BasicDataNode;
-struct VariableNode;
-struct VarWithAttributeNode;
-struct DefineVariableNode;
-struct MultipleVariableNode;
-struct AndTernaryNode;
-struct OrTernaryNode;
-struct ArrayNode;
-struct ExprWithIndexNode;
-struct IndexNode;
-struct XORNode;
-struct TableFieldNode;
-struct IfNode;
-struct ElseIfNode;
-struct DoNode;
-struct WhileNode;
-struct NumericForNode;
-struct GenericForNode;
-struct RepeatUntilNode;
-struct FunctionNode;
-struct AnonFunction;
-struct MethodNode;
-struct FunctionCallNode;
-struct MethodCallNode;
-struct ReturnNode;
+struct Node; struct UnaryOpNode; struct BinaryOpNode; struct BitwiseNode;
+struct MemberAccessNode; struct BasicDataNode; struct VariableNode;
+struct VarWithAttributeNode; struct DefineVariableNode;
+struct MultipleVariableNode; struct AndTernaryNode;
+struct OrTernaryNode; struct ArrayNode; struct ExprWithIndexNode;
+struct IndexNode; struct XORNode; struct TableFieldNode;
+struct IfNode; struct ElseIfNode; struct DoNode; struct WhileNode;
+struct NumericForNode; struct GenericForNode; struct RepeatUntilNode;
+struct FunctionNode; struct AnonFunction; struct MethodNode;
+struct FunctionCallNode; struct MethodCallNode; struct ReturnNode;
 
 class DiagnosticEngine {
 private:
@@ -116,10 +96,12 @@ public:
         scopes_.push_back(std::make_unique<Scope>(nullptr));
     }
 
-    void visit(DefineVariableNode*) override final;
     void makeScope(); 
     void removeScope();
     Scope* currentScope();
+
+    void visit(DefineVariableNode*) override final;
+    void visit(VariableNode*) override final;
 };
 
 #endif

@@ -87,3 +87,18 @@ void SemanticAnalyzer::visit(DefineVariableNode* vNode) {
         scopes_.back()->add_into_symbols(std::move(val), std::move(symb));
     }
 }
+
+void SemanticAnalyzer::visit(VariableNode* vNode) {
+    std::string val = std::get<std::string>(vNode->value.value);
+
+    Symbol* symb = scopes_.back()->lookup(val, diags_);
+    if (symb) {
+        symb->is_used_ = true;
+    }
+    else {
+        diags_.collect_diags(
+            "undeclared identifier", val,
+            DiagnosticEngine::DiagType::ERROR,
+            vNode);
+    }
+}
