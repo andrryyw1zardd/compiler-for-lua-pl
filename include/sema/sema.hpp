@@ -100,8 +100,12 @@ public:
     void removeScope();
     Scope* currentScope();
 
+    // variable things 
     void visit(DefineVariableNode*) override final;
     void visit(VariableNode*) override final;
+
+    // function things  
+    void visit(FunctionNode*) override final;
 };
 
 #endif

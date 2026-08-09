@@ -40,7 +40,7 @@ void DiagnosticEngine::collect_diags(
     if (diag == DiagType::ERROR) diag_str = "error";
     else diag_str = "warning";
 
-    std::string formated_mes = std::format("[{}] {} - '{}' at line {}, column {}.", 
+    std::string formated_mes = std::format("[{}] {} '{}' at line {}, column {}.", 
                                            diag_str,
                                            message, name, 
                                            node->position.y,
@@ -92,6 +92,7 @@ void SemanticAnalyzer::visit(VariableNode* vNode) {
     std::string val = std::get<std::string>(vNode->value.value);
 
     Symbol* symb = scopes_.back()->lookup(val, diags_);
+
     if (symb) {
         symb->is_used_ = true;
     }
@@ -101,4 +102,58 @@ void SemanticAnalyzer::visit(VariableNode* vNode) {
             DiagnosticEngine::DiagType::ERROR,
             vNode);
     }
+}
+
+void SemanticAnalyzer::visit(FunctionNode* fNode) {
+    std::string funcName = std::get<std::string>(fNode->value.value);
+
+    if (scopes_.back()->has_locally(funcName)) {
+        diags_.collect_diags(
+            "redefinition of", funcName,
+            DiagnosticEngine::DiagType::ERROR,
+            fNode);
+    }
+
+    Symbol symb = {
+        .kind_ = (fNode->isLocal) ? Symbol::Kind::LOCAL : Symbol::Kind::GLOBAL,
+        .is_used_ = false, 
+        .node_ = fNode 
+    };
+    scopes_.back()->add_into_symbols(funcName, symb);
+
+    makeScope();
+    for (auto& var : fNode->args) {
+        VariableNode* converted = dynamic_cast<VariableNode*>(var);
+
+        // this if stat can work only if param of func was invalid
+        // so for expample: function foo(1+2, val) ... end 
+        // here, its not allowed to pass '1+2' as func param
+        if (!converted) {
+            diags_.collect_diags(
+                "invalid function param in function", funcName,
+                DiagnosticEngine::DiagType::ERROR, fNode);
+
+            continue;
+        }
+
+        std::string vName = std::get<std::string>(converted->value.value);
+        Symbol vSymb = {
+            .kind_ = Symbol::Kind::PARAM,
+            .is_used_ = false, 
+            .node_ = fNode 
+        };
+
+        if (scopes_.back()->has_locally(vName)) {
+            diags_.collect_diags(
+                "invalid function param", funcName,
+                DiagnosticEngine::DiagType::ERROR,
+                converted);
+        }
+        else scopes_.back()->add_into_symbols(vName, vSymb);
+    }
+
+    for (const auto& var : fNode->body) {
+        var->accept(*this);
+    }
+    removeScope();
 }
