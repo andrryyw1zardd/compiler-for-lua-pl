@@ -8,9 +8,11 @@
 #include <vector>
 #include "allocator/alloc.hpp"
 #include "sema/sema.hpp"
+#include <optional>
 
 struct Node {
     Vect2 position;
+    std::optional<Symbol::DataType> node_data_type;
 
     virtual ~Node() = default;
     virtual std::string_view getName() const = 0;

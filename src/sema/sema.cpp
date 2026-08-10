@@ -3,6 +3,33 @@
 #include <format>
 #include <cassert>
 
+void SemanticAnalyzer::makeScope() {
+    auto scope = std::make_unique<Scope>(scopes_.back().get());
+    scopes_.push_back(std::move(scope));
+}
+
+void SemanticAnalyzer::removeScope() {
+    assert(scopes_.back()->get_parent() != nullptr);
+    scopes_.pop_back();
+}
+
+Scope* SemanticAnalyzer::currentScope() {
+    return scopes_.back().get();
+}
+
+void SemanticAnalyzer::makeFuncScope(FunctionNode* fNode) {
+    func_scopes_.push_back(fNode);
+}
+
+void SemanticAnalyzer::removeFuncScope() {
+    assert(func_scopes_.back()->get_parent() != nullptr);
+    func_scopes_.pop_back();
+}
+
+FunctionNode* SemanticAnalyzer::currentFuncScope() {
+    return func_scopes_.back();
+}
+
 void Scope::add_into_symbols(const std::string& name, const Symbol& symbol) {
     variables_[name] = symbol;
 }
@@ -49,31 +76,16 @@ void DiagnosticEngine::collect_diags(
     diag_vect_.push_back(formated_mes);
 }
 
-void SemanticAnalyzer::makeScope() {
-    auto scope = std::make_unique<Scope>(
-        scopes_.back().get());
-
-    scopes_.push_back(std::move(scope));
-}
-
-void SemanticAnalyzer::removeScope() {
-    assert(scopes_.back()->get_parent() != nullptr);
-    scopes_.pop_back();
-}
-
-// by returning raw pointer of Scope, 
-// I forse myself to work with current scope,
-// without having opportunity to deleting it.
-Scope* SemanticAnalyzer::currentScope() {
-    return scopes_.back().get();
-}
-
 void SemanticAnalyzer::visit(DefineVariableNode* vNode) {
+    vNode->right->accept(*this);
+
     Symbol symb = {
         .kind_ = Symbol::Kind::LOCAL,
+        .data_type_ = *vNode->right->node_data_type,
         .is_used_ = false, 
         .node_ = vNode 
     };
+
     std::string val = std::get<std::string>(vNode->value.value);
 
     if (scopes_.back()->has_locally(val)) {
@@ -83,7 +95,6 @@ void SemanticAnalyzer::visit(DefineVariableNode* vNode) {
         );
     }
     else {
-        vNode->right->accept(*this);
         scopes_.back()->add_into_symbols(std::move(val), std::move(symb));
     }
 }
@@ -95,12 +106,36 @@ void SemanticAnalyzer::visit(VariableNode* vNode) {
 
     if (symb) {
         symb->is_used_ = true;
+        vNode->node_data_type = symb->data_type_;
     }
     else {
         diags_.collect_diags(
             "undeclared identifier", val,
             DiagnosticEngine::DiagType::ERROR,
             vNode);
+    }
+}
+
+void SemanticAnalyzer::visit(BasicDataNode* bdNode) {
+    switch (bdNode->value.type) {
+        case Type::LIT_INT:
+        case Type::LIT_HEX: // need to parse hex to int in parser.cpp
+            bdNode->node_data_type = Symbol::DataType::INT;
+            break;
+
+        case Type::LIT_STRING:
+        case Type::LIT_LONG_STRING:
+        case Type::LIT_CHAR:
+            bdNode->node_data_type = Symbol::DataType::STRING;
+            break;
+
+        case Type::LIT_FLOAT:
+            bdNode->node_data_type = Symbol::DataType::FLOAT;
+            break;
+
+        default:
+            bdNode->node_data_type = Symbol::DataType::NULLTYPE;
+            break;
     }
 }
 
@@ -116,11 +151,13 @@ void SemanticAnalyzer::visit(FunctionNode* fNode) {
 
     Symbol symb = {
         .kind_ = (fNode->isLocal) ? Symbol::Kind::LOCAL : Symbol::Kind::GLOBAL,
+        .data_type_ = Symbol::DataType::NULLTYPE,
         .is_used_ = false, 
         .node_ = fNode 
     };
     scopes_.back()->add_into_symbols(funcName, symb);
 
+    makeFuncScope(fNode);
     makeScope();
     for (auto& var : fNode->args) {
         VariableNode* converted = dynamic_cast<VariableNode*>(var);
@@ -139,6 +176,7 @@ void SemanticAnalyzer::visit(FunctionNode* fNode) {
         std::string vName = std::get<std::string>(converted->value.value);
         Symbol vSymb = {
             .kind_ = Symbol::Kind::PARAM,
+            .data_type_ = Symbol::DataType::NULLTYPE,
             .is_used_ = false, 
             .node_ = fNode 
         };
@@ -156,4 +194,5 @@ void SemanticAnalyzer::visit(FunctionNode* fNode) {
         var->accept(*this);
     }
     removeScope();
+    removeFuncScope();
 }

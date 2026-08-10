@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include <unordered_map>
+#include <optional>
 
 struct Node; struct UnaryOpNode; struct BinaryOpNode; struct BitwiseNode;
 struct MemberAccessNode; struct BasicDataNode; struct VariableNode;
@@ -31,6 +32,16 @@ public:
 struct Symbol {
     enum class Kind { GLOBAL, PARAM, LOCAL, UPVALUE };
     Kind kind_;
+
+    enum class DataType { INT, FLOAT, STRING, NULLTYPE };
+    DataType data_type_;
+
+    // visit(ReturnNode*) gonna find the function that its in 
+    // by using currentFuncScope() it will find return_type_ and pass the data type
+    // later, visit(FunctionCallNode*) will read data type from return_type_ 
+    enum class ReturnType { INT, FLOAT, STRING, NIL };
+    std::optional<ReturnType> return_type_ = std::nullopt;
+
     bool is_used_ = false;
     Node* node_ = nullptr;
 };
@@ -89,6 +100,7 @@ public:
 class SemanticAnalyzer : public Visitor {
 private:
     std::vector<std::unique_ptr<Scope>> scopes_;
+    std::vector<FunctionNode*> func_scopes_;
     DiagnosticEngine& diags_;
 
 public:
@@ -96,13 +108,19 @@ public:
         scopes_.push_back(std::make_unique<Scope>(nullptr));
     }
 
-    void makeScope(); 
+    void makeScope();
     void removeScope();
     Scope* currentScope();
 
+    void makeFuncScope(FunctionNode*);
+    void removeFuncScope();
+    FunctionNode* currentFuncScope();
+
     // variable things 
+    // no type checking
     void visit(DefineVariableNode*) override final;
     void visit(VariableNode*) override final;
+    void visit(BasicDataNode*) override final;
 
     // function things  
     void visit(FunctionNode*) override final;
