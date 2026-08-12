@@ -16,18 +16,16 @@ int main([[maybe_unused]]int argc, char** args) {
     while (std::getline(readFile, i)) { 
         sourceCode += i + "\n"; 
     }
+    readFile.close(); 
 
     auto t0 = std::chrono::high_resolution_clock::now();
-
     Lexer lex{sourceCode};
     std::vector<Token> VectorOfTokens = lex.tokenize();
 
     auto t1 = std::chrono::high_resolution_clock::now();
-
     Parser parser{VectorOfTokens};  
     std::vector<Node*, ArenaAllocator<Node*>> ast = parser.parse_block();
     
-
     auto t2 = std::chrono::high_resolution_clock::now();
 
     auto lex_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
@@ -35,8 +33,6 @@ int main([[maybe_unused]]int argc, char** args) {
 
     std::cerr << "Lexer Speed: " << lex_us << " us\n";
     std::cerr << "Parser Speed: " << par_us << " us\n";
-
-    readFile.close(); 
 
     return 0;
 }

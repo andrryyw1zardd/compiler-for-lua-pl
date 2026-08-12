@@ -35,7 +35,7 @@ struct Symbol {
 
     enum class DataType { INT, FLOAT, STRING, BOOL, NIL, UNKNOWN };
     DataType data_type_;
-    std::optional<std::vector<DataType>> return_type_ = std::nullopt;
+    std::optional<std::vector<DataType>> return_types_ = std::nullopt;
 
     bool is_used_ = false;
     Node* node_ = nullptr;
@@ -114,6 +114,7 @@ public:
     void visit(DefineVariableNode*) override final;
     void visit(VariableNode*) override final;
     void visit(BasicDataNode*) override final;
+    void visit(MultipleVariableNode*) override final;
 
     // function things  
     void visit(FunctionNode*) override final;

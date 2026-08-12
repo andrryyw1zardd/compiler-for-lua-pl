@@ -126,6 +126,74 @@ void SemanticAnalyzer::visit(VariableNode* vNode) {
     }
 }
 
+void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
+    std::vector<std::string> lNameVect;
+
+    for (const auto& left: mvNode->left_side) {
+        VariableNode* converted = dynamic_cast<VariableNode*>(left);
+
+        if (!converted) {
+            diags_.collect_diags(
+                "expected variable name but got", std::string(left->getName()),
+                DiagnosticEngine::DiagType::ERROR, left);
+            continue;
+        }
+
+        std::string lName = std::get<std::string>(converted->value.value);
+        lNameVect.push_back(lName);
+
+        Symbol vSymb = {
+            .kind_ = Symbol::Kind::LOCAL,
+            .data_type_ = Symbol::DataType::UNKNOWN,
+            .is_used_ = false, 
+            .node_ = left 
+        };
+
+        if (scopes_.back()->has_locally(lName)) {
+            diags_.collect_diags(
+                "redefinition of variable", lName,
+                DiagnosticEngine::DiagType::ERROR,
+                converted);
+        }
+        else scopes_.back()->add_into_symbols(lName, vSymb);
+    }
+
+    if (mvNode->left_side.size() == mvNode->right_side.size()) {
+        std::vector<Symbol::DataType> rDtVect;
+
+        for (size_t i = 0; i < mvNode->right_side.size(); ++i) {
+            mvNode->right_side[i]->accept(*this);
+
+            auto lSymb = scopes_.back()->lookup(lNameVect[i], diags_);
+
+            if (!lSymb) {
+                diags_.collect_diags(
+                    "", lNameVect[i],
+                    DiagnosticEngine::DiagType::ERROR, mvNode->left_side[i]);
+                continue;
+            }
+
+            lSymb->data_type_ = *mvNode->right_side[i]->node_data_type;
+        }
+    }
+    else { /* better else if 
+        need to handle after making visit(FunctionCallNode*).
+
+        compare left side and right side to see if their args are the same length (DONE)
+        ->  local a, b, c = 1, 2, 3
+        if no, check the right side to see if there a function call 
+        ->  local a, b, c = 1, foo()
+
+        these 2 are valid, but the length isnt the same
+
+        ->  if 'left_side < right_side' then
+        ->    the last ones of left_side should have DataType::UNKNOWN
+        ->  if 'left_side > right_side' then
+        ->    error
+        */
+    }
+}
+
 void SemanticAnalyzer::visit(BasicDataNode* bdNode) {
     switch (bdNode->value.type) {
         case Type::LIT_INT:
@@ -234,13 +302,13 @@ void SemanticAnalyzer::visit(ReturnNode* rNode) {
         return;
     }
 
-    if (!symb->return_type_) {
-        symb->return_type_ = temp_vect;
+    if (!symb->return_types_) {
+        symb->return_types_ = temp_vect;
     } else {
         // ts gonna work if the function has more than one returns 
-        if (*symb->return_type_ != temp_vect) {
+        if (*symb->return_types_ != temp_vect) {
             diags_.collect_diags(
-                "", 
+                "inconsistent/invalid return types in function", 
                 fName, DiagnosticEngine::DiagType::ERROR, rNode);
         }
     }

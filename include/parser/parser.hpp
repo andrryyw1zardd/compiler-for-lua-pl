@@ -12,7 +12,7 @@
 
 struct Node {
     Vect2 position;
-    std::optional<Symbol::DataType> node_data_type;
+    std::optional<Symbol::DataType> node_data_type = std::nullopt;
 
     virtual ~Node() = default;
     virtual std::string_view getName() const = 0;
