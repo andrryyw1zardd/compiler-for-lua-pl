@@ -17,19 +17,6 @@ Scope* SemanticAnalyzer::currentScope() {
     return scopes_.back().get();
 }
 
-void SemanticAnalyzer::makeFuncScope(FunctionNode* fNode) {
-    func_scopes_.push_back(fNode);
-}
-
-void SemanticAnalyzer::removeFuncScope() {
-    assert(func_scopes_.back()->get_parent() != nullptr);
-    func_scopes_.pop_back();
-}
-
-FunctionNode* SemanticAnalyzer::currentFuncScope() {
-    return func_scopes_.back();
-}
-
 void Scope::add_into_symbols(const std::string& name, const Symbol& symbol) {
     variables_[name] = symbol;
 }
@@ -54,6 +41,29 @@ Symbol* Scope::lookup(const std::string& name, DiagnosticEngine& de) {
     }
 
     return nullptr;
+}
+
+void SemanticAnalyzer::makeFuncScope(FunctionNode* fNode) {
+    std::string vName = std::get<std::string>(fNode->value.value);
+    Symbol symb = {
+        .kind_ = (fNode->isLocal) ? Symbol::Kind::LOCAL : Symbol::Kind::GLOBAL,
+        .data_type_ = Symbol::DataType::UNKNOWN,
+        .is_used_ = false, 
+        .node_ = fNode 
+    };
+
+    scopes_.back()->add_into_symbols(vName, symb);
+    func_scopes_.push_back(fNode);
+}
+
+void SemanticAnalyzer::removeFuncScope() {
+    assert(!func_scopes_.empty());
+    func_scopes_.pop_back();
+}
+
+FunctionNode* SemanticAnalyzer::currentFuncScope() {
+    assert(!func_scopes_.empty());
+    return func_scopes_.back();
 }
 
 void DiagnosticEngine::collect_diags(
@@ -133,8 +143,13 @@ void SemanticAnalyzer::visit(BasicDataNode* bdNode) {
             bdNode->node_data_type = Symbol::DataType::FLOAT;
             break;
 
+        case Type::KW_TRUE:
+        case Type::KW_FALSE:
+            bdNode->node_data_type = Symbol::DataType::BOOL;
+            break;
+            
         default:
-            bdNode->node_data_type = Symbol::DataType::NULLTYPE;
+            bdNode->node_data_type = Symbol::DataType::UNKNOWN;
             break;
     }
 }
@@ -151,7 +166,7 @@ void SemanticAnalyzer::visit(FunctionNode* fNode) {
 
     Symbol symb = {
         .kind_ = (fNode->isLocal) ? Symbol::Kind::LOCAL : Symbol::Kind::GLOBAL,
-        .data_type_ = Symbol::DataType::NULLTYPE,
+        .data_type_ = Symbol::DataType::UNKNOWN,
         .is_used_ = false, 
         .node_ = fNode 
     };
@@ -159,8 +174,8 @@ void SemanticAnalyzer::visit(FunctionNode* fNode) {
 
     makeFuncScope(fNode);
     makeScope();
-    for (auto& var : fNode->args) {
-        VariableNode* converted = dynamic_cast<VariableNode*>(var);
+    for (auto& arg : fNode->args) {
+        VariableNode* converted = dynamic_cast<VariableNode*>(arg);
 
         // this if stat can work only if param of func was invalid
         // so for expample: function foo(1+2, val) ... end 
@@ -176,14 +191,14 @@ void SemanticAnalyzer::visit(FunctionNode* fNode) {
         std::string vName = std::get<std::string>(converted->value.value);
         Symbol vSymb = {
             .kind_ = Symbol::Kind::PARAM,
-            .data_type_ = Symbol::DataType::NULLTYPE,
+            .data_type_ = Symbol::DataType::UNKNOWN,
             .is_used_ = false, 
-            .node_ = fNode 
+            .node_ = arg 
         };
 
         if (scopes_.back()->has_locally(vName)) {
             diags_.collect_diags(
-                "invalid function param", funcName,
+                "invalid function param", vName,
                 DiagnosticEngine::DiagType::ERROR,
                 converted);
         }
@@ -195,4 +210,38 @@ void SemanticAnalyzer::visit(FunctionNode* fNode) {
     }
     removeScope();
     removeFuncScope();
+}
+
+void SemanticAnalyzer::visit(ReturnNode* rNode) {
+    std::vector<Symbol::DataType> temp_vect;
+
+    for (const auto& iter : rNode->args) {
+        iter->accept(*this);
+
+        if (iter->node_data_type) {
+            temp_vect.push_back(*iter->node_data_type);
+        }
+        else temp_vect.push_back(Symbol::DataType::UNKNOWN);
+    }
+
+    std::string fName = std::get<std::string>(currentFuncScope()->value.value);
+
+    Symbol* symb = scopes_.back()->get_parent()->lookup(fName, diags_);
+    if (!symb) {
+        diags_.collect_diags(
+            "function symbol not found in parent scope", 
+            fName, DiagnosticEngine::DiagType::ERROR, rNode);
+        return;
+    }
+
+    if (!symb->return_type_) {
+        symb->return_type_ = temp_vect;
+    } else {
+        // ts gonna work if the function has more than one returns 
+        if (*symb->return_type_ != temp_vect) {
+            diags_.collect_diags(
+                "", 
+                fName, DiagnosticEngine::DiagType::ERROR, rNode);
+        }
+    }
 }

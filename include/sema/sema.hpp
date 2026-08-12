@@ -33,14 +33,9 @@ struct Symbol {
     enum class Kind { GLOBAL, PARAM, LOCAL, UPVALUE };
     Kind kind_;
 
-    enum class DataType { INT, FLOAT, STRING, NULLTYPE };
+    enum class DataType { INT, FLOAT, STRING, BOOL, NIL, UNKNOWN };
     DataType data_type_;
-
-    // visit(ReturnNode*) gonna find the function that its in 
-    // by using currentFuncScope() it will find return_type_ and pass the data type
-    // later, visit(FunctionCallNode*) will read data type from return_type_ 
-    enum class ReturnType { INT, FLOAT, STRING, NIL };
-    std::optional<ReturnType> return_type_ = std::nullopt;
+    std::optional<std::vector<DataType>> return_type_ = std::nullopt;
 
     bool is_used_ = false;
     Node* node_ = nullptr;
@@ -50,7 +45,6 @@ class Scope {
 private:
     Scope* parent_ = nullptr;
     std::unordered_map<std::string, Symbol> variables_;
-    // need to add some more for other things 
 
 public:
     explicit Scope(Scope* p) : parent_(p) { } 
@@ -117,13 +111,13 @@ public:
     FunctionNode* currentFuncScope();
 
     // variable things 
-    // no type checking
     void visit(DefineVariableNode*) override final;
     void visit(VariableNode*) override final;
     void visit(BasicDataNode*) override final;
 
     // function things  
     void visit(FunctionNode*) override final;
+    void visit(ReturnNode*) override final;
 };
 
 #endif
