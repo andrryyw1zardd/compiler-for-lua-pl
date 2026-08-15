@@ -525,7 +525,7 @@ private:
         Type::MINUS, Type::PLUS, Type::HASH, Type::KW_NOT, Type::TILDE
     };
 
-    static inline const std::array<Type, 5> BitwiseOpSet = {
+    static constexpr std::array<Type, 5> BitwiseOpSet = {
         Type::L_SHIFT, Type::R_SHIFT, Type::TILDE, Type::VERTICAL_BAR, Type::AMPERSAND
     };
 

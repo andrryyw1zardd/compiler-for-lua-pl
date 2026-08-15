@@ -2,6 +2,7 @@
 #include "parser/parser.hpp"
 #include <format>
 #include <cassert>
+#include <utility>
 
 void SemanticAnalyzer::makeScope() {
     auto scope = std::make_unique<Scope>(scopes_.back().get());
@@ -86,6 +87,38 @@ void DiagnosticEngine::collect_diags(
     diag_vect_.push_back(formated_mes);
 }
 
+void SemanticAnalyzer::initGLobals() {
+    std::array<std::string, 10> globalFuncNames {
+        "print", "type", "tostring", "tonumber",
+        "error", "assert", "select", "next",
+        "pairs", "ipairs" 
+    };
+
+    std::array<std::vector<Symbol::DataType>, 10> globalFuncRetTypes {
+        std::vector<Symbol::DataType>{Symbol::DataType::NIL}, // print
+        std::vector<Symbol::DataType>{Symbol::DataType::STRING}, // type
+        std::vector<Symbol::DataType>{Symbol::DataType::STRING}, // tostring
+        std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN}, // tonumber
+        std::vector<Symbol::DataType>{Symbol::DataType::NIL}, // error
+        std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN}, // assert (it can return its args or error)
+        std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN}, // select (it returns its own args, 0 or more)
+        std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN, Symbol::DataType::UNKNOWN}, // next (key, value)
+        std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN}, // pairs (can return iter, table or nil, so just UNKNOWN)
+        std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN}, // ipairs (same as pairs just 0 instead of nil)
+    };
+
+    for (size_t i = 0; i < globalFuncRetTypes.size(); ++i) {
+        Symbol symb = {
+            .kind_ = Symbol::Kind::GLOBAL,
+            .data_type_ = Symbol::DataType::NIL,
+            .return_types_ = globalFuncRetTypes[i],
+            .is_used_ = false,
+            .node_ = nullptr };
+
+        scopes_.front()->add_into_symbols(globalFuncNames[i], symb);
+    }
+}
+
 void SemanticAnalyzer::visit(DefineVariableNode* vNode) {
     vNode->right->accept(*this);
 
@@ -95,18 +128,16 @@ void SemanticAnalyzer::visit(DefineVariableNode* vNode) {
         .is_used_ = false, 
         .node_ = vNode 
     };
-
     std::string val = std::get<std::string>(vNode->value.value);
 
     if (scopes_.back()->has_locally(val)) {
         diags_.collect_diags(
-            "redefinition of variable", val,
-             DiagnosticEngine::DiagType::ERROR, vNode
+            "redefinition of variable in same scope", val,
+             DiagnosticEngine::DiagType::WARNING, vNode
         );
     }
-    else {
-        scopes_.back()->add_into_symbols(std::move(val), std::move(symb));
-    }
+
+    scopes_.back()->add_into_symbols(std::move(val), std::move(symb));
 }
 
 void SemanticAnalyzer::visit(VariableNode* vNode) {
@@ -119,10 +150,14 @@ void SemanticAnalyzer::visit(VariableNode* vNode) {
         vNode->node_data_type = symb->data_type_;
     }
     else {
-        diags_.collect_diags(
-            "undeclared identifier", val,
-            DiagnosticEngine::DiagType::ERROR,
-            vNode);
+        Symbol new_symb = {
+            .kind_ = Symbol::Kind::GLOBAL,
+            .data_type_ = Symbol::DataType::NIL,
+            .is_used_ = true, 
+            .node_ = vNode
+        };
+        std::string new_var_name = std::get<std::string>(vNode->value.value);
+        scopes_.front()->add_into_symbols(new_var_name, new_symb);
     }
 }
 
@@ -190,6 +225,13 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
         ->    the last ones of left_side should have DataType::UNKNOWN
         ->  if 'left_side > right_side' then
         ->    error
+
+        dude actually lua does not give a shit about this at all 
+        local nih, nih = 1, 2, 3
+        print(a, b, nih)
+
+        this would print nil nil 2 gng -_- 
+        so no need to check left and right, just add nil where you need
         */
     }
 }
@@ -225,13 +267,6 @@ void SemanticAnalyzer::visit(BasicDataNode* bdNode) {
 void SemanticAnalyzer::visit(FunctionNode* fNode) {
     std::string funcName = std::get<std::string>(fNode->value.value);
 
-    if (scopes_.back()->has_locally(funcName)) {
-        diags_.collect_diags(
-            "redefinition of", funcName,
-            DiagnosticEngine::DiagType::ERROR,
-            fNode);
-    }
-
     Symbol symb = {
         .kind_ = (fNode->isLocal) ? Symbol::Kind::LOCAL : Symbol::Kind::GLOBAL,
         .data_type_ = Symbol::DataType::UNKNOWN,
@@ -264,13 +299,7 @@ void SemanticAnalyzer::visit(FunctionNode* fNode) {
             .node_ = arg 
         };
 
-        if (scopes_.back()->has_locally(vName)) {
-            diags_.collect_diags(
-                "invalid function param", vName,
-                DiagnosticEngine::DiagType::ERROR,
-                converted);
-        }
-        else scopes_.back()->add_into_symbols(vName, vSymb);
+        scopes_.back()->add_into_symbols(vName, vSymb);
     }
 
     for (const auto& var : fNode->body) {
@@ -305,11 +334,18 @@ void SemanticAnalyzer::visit(ReturnNode* rNode) {
     if (!symb->return_types_) {
         symb->return_types_ = temp_vect;
     } else {
-        // ts gonna work if the function has more than one returns 
         if (*symb->return_types_ != temp_vect) {
             diags_.collect_diags(
                 "inconsistent/invalid return types in function", 
                 fName, DiagnosticEngine::DiagType::ERROR, rNode);
         }
+    }
+}
+
+void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
+    fcNode->callee->accept(*this);
+
+    for (const auto& arg: fcNode->args) {
+        arg->accept(*this);
     }
 }

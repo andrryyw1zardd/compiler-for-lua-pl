@@ -100,7 +100,10 @@ private:
 public:
     SemanticAnalyzer(DiagnosticEngine& d) : diags_(d) { 
         scopes_.push_back(std::make_unique<Scope>(nullptr));
+        initGLobals();
     }
+
+    void initGLobals();
 
     void makeScope();
     void removeScope();
@@ -119,6 +122,7 @@ public:
     // function things  
     void visit(FunctionNode*) override final;
     void visit(ReturnNode*) override final;
+    void visit(FunctionCallNode*) override final;
 };
 
 #endif
