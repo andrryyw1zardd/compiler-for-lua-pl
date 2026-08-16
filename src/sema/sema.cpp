@@ -163,6 +163,7 @@ void SemanticAnalyzer::visit(VariableNode* vNode) {
 
 void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
     std::vector<std::string> lNameVect;
+    std::vector<Symbol::DataType> lDtVect;
 
     for (const auto& left: mvNode->left_side) {
         VariableNode* converted = dynamic_cast<VariableNode*>(left);
@@ -183,56 +184,25 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
             .is_used_ = false, 
             .node_ = left 
         };
-
-        if (scopes_.back()->has_locally(lName)) {
-            diags_.collect_diags(
-                "redefinition of variable", lName,
-                DiagnosticEngine::DiagType::ERROR,
-                converted);
-        }
-        else scopes_.back()->add_into_symbols(lName, vSymb);
+        scopes_.back()->add_into_symbols(lName, vSymb);
     }
 
-    if (mvNode->left_side.size() == mvNode->right_side.size()) {
-        std::vector<Symbol::DataType> rDtVect;
+    for (const auto& right: mvNode->right_side) {
+        right->accept(*this);
 
-        for (size_t i = 0; i < mvNode->right_side.size(); ++i) {
-            mvNode->right_side[i]->accept(*this);
-
-            auto lSymb = scopes_.back()->lookup(lNameVect[i], diags_);
-
-            if (!lSymb) {
-                diags_.collect_diags(
-                    "", lNameVect[i],
-                    DiagnosticEngine::DiagType::ERROR, mvNode->left_side[i]);
-                continue;
-            }
-
-            lSymb->data_type_ = *mvNode->right_side[i]->node_data_type;
-        }
+        if (right->node_data_type) lDtVect.push_back(*right->node_data_type);
+        else lDtVect.push_back(Symbol::DataType::UNKNOWN);
     }
-    else { /* better else if 
-        need to handle after making visit(FunctionCallNode*).
 
-        compare left side and right side to see if their args are the same length (DONE)
-        ->  local a, b, c = 1, 2, 3
-        if no, check the right side to see if there a function call 
-        ->  local a, b, c = 1, foo()
+    for (size_t i = 0; i < lNameVect.size(); ++i) {
+        auto lSymb = scopes_.back()->lookup(lNameVect[i], diags_);
 
-        these 2 are valid, but the length isnt the same
+        if (!lSymb) {
+            assert(lSymb && "symbol was just added but lookup returned nullptr");
+        }
 
-        ->  if 'left_side < right_side' then
-        ->    the last ones of left_side should have DataType::UNKNOWN
-        ->  if 'left_side > right_side' then
-        ->    error
-
-        dude actually lua does not give a shit about this at all 
-        local nih, nih = 1, 2, 3
-        print(a, b, nih)
-
-        this would print nil nil 2 gng -_- 
-        so no need to check left and right, just add nil where you need
-        */
+        if (lDtVect.size() > i) lSymb->data_type_ = lDtVect[i];
+        else lSymb->data_type_ = Symbol::DataType::NIL;
     }
 }
 
