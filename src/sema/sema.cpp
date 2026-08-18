@@ -3,6 +3,7 @@
 #include <format>
 #include <cassert>
 #include <utility>
+#include <algorithm>
 
 void SemanticAnalyzer::makeScope() {
     auto scope = std::make_unique<Scope>(scopes_.back().get());
@@ -165,6 +166,7 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
     std::vector<std::string> lNameVect;
     std::vector<Symbol::DataType> lDtVect;
 
+    // this loop is for the left side to be correctly handled
     for (const auto& left: mvNode->left_side) {
         VariableNode* converted = dynamic_cast<VariableNode*>(left);
 
@@ -187,13 +189,25 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
         scopes_.back()->add_into_symbols(lName, vSymb);
     }
 
+    // and this loop if for the right side 
     for (const auto& right: mvNode->right_side) {
         right->accept(*this);
+        FunctionCallNode* converted = dynamic_cast<FunctionCallNode*>(right);
 
-        if (right->node_data_type) lDtVect.push_back(*right->node_data_type);
-        else lDtVect.push_back(Symbol::DataType::UNKNOWN);
+        if (!converted || !converted->ret_data_types || converted->ret_data_types->empty()) {
+            if (right->node_data_type) lDtVect.push_back(*right->node_data_type);
+            else lDtVect.push_back(Symbol::DataType::UNKNOWN);
+        }
+        else {
+            const auto& rets = converted->ret_data_types.value();
+
+            if (right == mvNode->right_side.back()) 
+                for (const auto& ret: rets) lDtVect.push_back(ret);
+            else lDtVect.push_back(rets[0]);
+        }
     }
 
+    // finally this loop connects left and right sides
     for (size_t i = 0; i < lNameVect.size(); ++i) {
         auto lSymb = scopes_.back()->lookup(lNameVect[i], diags_);
 
@@ -201,7 +215,7 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
             assert(lSymb && "symbol was just added but lookup returned nullptr");
         }
 
-        if (lDtVect.size() > i) lSymb->data_type_ = lDtVect[i];
+        if (lDtVect.size() > i) { lSymb->data_type_ = lDtVect[i]; }
         else lSymb->data_type_ = Symbol::DataType::NIL;
     }
 }
@@ -313,9 +327,30 @@ void SemanticAnalyzer::visit(ReturnNode* rNode) {
 }
 
 void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
-    fcNode->callee->accept(*this);
-
     for (const auto& arg: fcNode->args) {
         arg->accept(*this);
     }
+
+    VariableNode* converted = dynamic_cast<VariableNode*>(fcNode->callee);
+    if (!converted) {
+        diags_.collect_diags(
+            "invalid function call", std::string(fcNode->getName()),
+            DiagnosticEngine::DiagType::ERROR, fcNode);
+        return;
+    }
+
+    std::string fcName = std::get<std::string>(converted->value.value);
+
+    auto symb = scopes_.back()->lookup(fcName, diags_);
+    if (!symb) {
+        diags_.collect_diags(
+            "compiler: cant find function call name in symbol table", fcName,
+            DiagnosticEngine::DiagType::ERROR, fcNode);
+        return;
+    }
+
+    fcNode->ret_data_types = symb->return_types_;
+}
+
+void SemanticAnalyzer::visit([[maybe_unused]]BinaryOpNode* boNode) {
 }

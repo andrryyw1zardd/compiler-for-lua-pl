@@ -449,6 +449,7 @@ struct MethodNode : Node {
 struct FunctionCallNode : Node {
     Node* callee;
     std::vector<Node*, ArenaAllocator<Node*>> args;
+    std::optional<std::vector<Symbol::DataType>> ret_data_types = std::nullopt;
 
     FunctionCallNode(Node* c, std::vector<Node*, ArenaAllocator<Node*>> a) 
         : callee(std::move(c)), args(std::move(a)) { }
