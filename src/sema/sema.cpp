@@ -3,7 +3,6 @@
 #include <format>
 #include <cassert>
 #include <utility>
-#include <algorithm>
 
 void SemanticAnalyzer::makeScope() {
     auto scope = std::make_unique<Scope>(scopes_.back().get());
@@ -352,5 +351,106 @@ void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
     fcNode->ret_data_types = symb->return_types_;
 }
 
-void SemanticAnalyzer::visit([[maybe_unused]]BinaryOpNode* boNode) {
+void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
+    boNode->left->accept(*this);
+    boNode->right->accept(*this);
+
+    if (boNode->left->node_data_type == Symbol::DataType::UNKNOWN
+     || boNode->right->node_data_type == Symbol::DataType::UNKNOWN)
+    {
+        // diag
+        return;
+    }
+
+    switch (boNode->op) {
+        case Type::EQUAL_EQUAL:
+        case Type::NOT_EQUAL:
+            boNode->node_data_type = Symbol::DataType::BOOL;
+            break;
+
+        case Type::GREATER:
+        case Type::GREATER_EQUAL:
+        case Type::LESS:
+        case Type::LESS_EQUAL:
+            if (boNode->left->node_data_type != Symbol::DataType::INT 
+                && boNode->left->node_data_type != Symbol::DataType::FLOAT
+                && boNode->left->node_data_type != Symbol::DataType::STRING) {
+                // diag
+                break;
+            }
+            if (boNode->right->node_data_type != Symbol::DataType::INT 
+                && boNode->right->node_data_type != Symbol::DataType::FLOAT
+                && boNode->right->node_data_type != Symbol::DataType::STRING) {
+                // diag
+                break;
+            }
+
+            boNode->node_data_type = Symbol::DataType::BOOL;
+            break;
+
+        case Type::PLUS:
+        case Type::MINUS:
+        case Type::STAR:
+        case Type::PERCENT:
+        case Type::DOUBLE_SLASH:
+            if (boNode->left->node_data_type != Symbol::DataType::INT 
+                && boNode->left->node_data_type != Symbol::DataType::FLOAT) {
+                // diag
+                break;
+            }
+            if (boNode->right->node_data_type != Symbol::DataType::INT 
+                && boNode->right->node_data_type != Symbol::DataType::FLOAT) {
+                // diag
+                break;
+            }
+            
+            if (boNode->left->node_data_type == Symbol::DataType::FLOAT 
+                || boNode->right->node_data_type == Symbol::DataType::FLOAT) {
+                boNode->node_data_type = Symbol::DataType::FLOAT;
+            } 
+            else boNode->node_data_type = Symbol::DataType::INT;
+            break;
+
+        // a .. b: here, a and b can be str, int or float 
+        // the variables will be converted into strings
+        // and they will be joined into one new string
+        // so if a = "hello" and b = 12, then a..b = "hello12"
+        case Type::CONCAT:
+            if (boNode->left->node_data_type != Symbol::DataType::INT 
+                && boNode->left->node_data_type != Symbol::DataType::FLOAT
+                && boNode->left->node_data_type != Symbol::DataType::STRING) {
+                // diag
+                break;
+            }
+            if (boNode->right->node_data_type != Symbol::DataType::INT 
+                && boNode->right->node_data_type != Symbol::DataType::FLOAT
+                && boNode->right->node_data_type != Symbol::DataType::STRING) {
+                // diag
+                break;
+            }
+
+            boNode->node_data_type = Symbol::DataType::STRING;
+            break;
+
+        // in lua, a^b and a/b always return float
+        case Type::CARET:
+        case Type::SLASH:
+            if (boNode->left->node_data_type != Symbol::DataType::INT 
+                && boNode->left->node_data_type != Symbol::DataType::FLOAT) {
+                // diag
+                break;
+            }
+            if (boNode->right->node_data_type != Symbol::DataType::INT 
+                && boNode->right->node_data_type != Symbol::DataType::FLOAT) {
+                // diag
+                break;
+            }
+
+            boNode->node_data_type = Symbol::DataType::FLOAT;
+            break;
+
+        default:
+            // diag
+            break;
+    }
 }
