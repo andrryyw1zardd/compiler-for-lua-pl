@@ -121,6 +121,8 @@ public:
 
     // operation things
     void visit(BinaryOpNode*) override final;
+    void visit(AndTernaryNode*) override final;
+    void visit(OrTernaryNode*) override final;
 
     // function things  
     void visit(FunctionNode*) override final;

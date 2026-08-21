@@ -523,7 +523,7 @@ private:
     };
 
     static constexpr std::array<Type, 5> UnaryOpSet = {
-        Type::MINUS, Type::PLUS, Type::HASH, Type::KW_NOT, Type::TILDE
+        Type::MINUS, Type::PLUS, Type::HASH, Type::NOT, Type::TILDE
     };
 
     static constexpr std::array<Type, 5> BitwiseOpSet = {
