@@ -33,7 +33,7 @@ struct Symbol {
     enum class Kind { GLOBAL, PARAM, LOCAL, UPVALUE };
     Kind kind_;
 
-    enum class DataType { INT, FLOAT, STRING, BOOL, NIL, UNKNOWN };
+    enum class DataType { INT, FLOAT, TABLE, STRING, BOOL, NIL, UNKNOWN };
     DataType data_type_;
     std::optional<std::vector<DataType>> return_types_ = std::nullopt;
 
@@ -116,18 +116,19 @@ public:
     // variable things 
     void visit(DefineVariableNode*) override final;
     void visit(VariableNode*) override final;
-    void visit(BasicDataNode*) override final;
     void visit(MultipleVariableNode*) override final;
-
-    // operation things
-    void visit(BinaryOpNode*) override final;
-    void visit(AndTernaryNode*) override final;
-    void visit(OrTernaryNode*) override final;
+    void visit(BasicDataNode*) override final;
+    void visit(UnaryOpNode*) override final;
 
     // function things  
     void visit(FunctionNode*) override final;
     void visit(ReturnNode*) override final;
     void visit(FunctionCallNode*) override final;
+
+    // operation things
+    void visit(BinaryOpNode*) override final;
+    void visit(AndTernaryNode*) override final;
+    void visit(OrTernaryNode*) override final;
 };
 
 #endif
