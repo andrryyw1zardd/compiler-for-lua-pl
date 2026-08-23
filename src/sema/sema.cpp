@@ -591,3 +591,45 @@ void SemanticAnalyzer::visit(OrTernaryNode* atNode) {
         atNode->node_data_type = Symbol::DataType::BOOL;
     }
 }
+
+void SemanticAnalyzer::visit(BitwiseNode* bNode) {
+    bNode->left->accept(*this);
+    bNode->right->accept(*this);
+
+    if (bNode->left->node_data_type == Symbol::DataType::UNKNOWN) {
+        diags_.collect_diags( 
+            "invalid data type of", std::string(bNode->getName()),
+            DiagnosticEngine::DiagType::ERROR, bNode);
+    }
+
+    if (bNode->right->node_data_type == Symbol::DataType::UNKNOWN) {
+        diags_.collect_diags( 
+            "invalid data type of", std::string(bNode->getName()),
+            DiagnosticEngine::DiagType::ERROR, bNode);
+    }
+
+    switch (bNode->op) {
+        case Type::L_SHIFT:
+        case Type::R_SHIFT:
+        case Type::TILDE:
+        case Type::AMPERSAND:
+        case Type::VERTICAL_BAR:
+            if ( bNode->left->node_data_type == Symbol::DataType::BOOL 
+                || bNode->left->node_data_type == Symbol::DataType::NIL) 
+            {
+                diags_.collect_diags( 
+                    "invalid data type of", std::string(bNode->getName()),
+                    DiagnosticEngine::DiagType::ERROR, bNode);
+                break;
+            }
+
+            bNode->node_data_type = Symbol::DataType::INT;
+            break;
+
+        default: 
+            diags_.collect_diags( 
+                "invalid data type of", std::string(bNode->getName()),
+                DiagnosticEngine::DiagType::ERROR, bNode);
+            break;
+    }
+}

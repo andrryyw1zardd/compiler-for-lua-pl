@@ -129,6 +129,7 @@ public:
     void visit(BinaryOpNode*) override final;
     void visit(AndTernaryNode*) override final;
     void visit(OrTernaryNode*) override final;
+    void visit(BitwiseNode*) override final;
 };
 
 #endif
