@@ -308,6 +308,54 @@ void SemanticAnalyzer::visit(UnaryOpNode* uoNode) {
     }
 }
 
+void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
+    maNode->value->accept(*this);
+
+    std::string maName = std::get<std::string>(maNode->qualifier.value);
+    Symbol* symb = scopes_.back()->lookup(maName, diags_);
+
+    if (!symb) {
+        diags_.collect_diags(
+            "undeclerated qualifier", maName,
+            DiagnosticEngine::DiagType::ERROR, maNode);
+        return;
+    }
+
+    if (maNode->node_data_type == Symbol::DataType::UNKNOWN) {
+        diags_.collect_diags(
+            "unknown data type of", maName,
+            DiagnosticEngine::DiagType::ERROR, maNode);
+        return;
+    }
+
+    symb->is_used_ = true;
+    maNode->node_data_type = maNode->value->node_data_type;
+}
+
+// add_into_symbols and dont let the value change
+void SemanticAnalyzer::visit(VarWithAttributeNode* vaNode) {
+    vaNode->right->accept(*this);
+
+    switch (vaNode->type) {
+        case Type::KW_CONST:
+            vaNode->node_data_type = vaNode->right->node_data_type;
+            break;
+
+        case Type::KW_CLOSE:
+            vaNode->node_data_type = vaNode->right->node_data_type;
+            break;
+
+        default:
+            std::string name = std::get<std::string>(vaNode->value.value);
+
+            diags_.collect_diags(
+                "invalid attribute of variable", name,
+                DiagnosticEngine::DiagType::ERROR, vaNode);
+
+            break;
+    }
+}
+
 void SemanticAnalyzer::visit(FunctionNode* fNode) {
     std::string funcName = std::get<std::string>(fNode->value.value);
 

@@ -119,6 +119,8 @@ public:
     void visit(MultipleVariableNode*) override final;
     void visit(BasicDataNode*) override final;
     void visit(UnaryOpNode*) override final;
+    void visit(MemberAccessNode*) override final;
+    void visit(VarWithAttributeNode*) override final;
 
     // function things  
     void visit(FunctionNode*) override final;
