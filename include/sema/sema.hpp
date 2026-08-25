@@ -9,7 +9,7 @@
 struct Node; struct UnaryOpNode; struct BinaryOpNode; struct BitwiseNode;
 struct MemberAccessNode; struct BasicDataNode; struct VariableNode;
 struct VarWithAttributeNode; struct DefineVariableNode;
-struct MultipleVariableNode; struct AndTernaryNode;
+struct MultipleVariableNode; struct AndTernaryNode; struct IdentNode;
 struct OrTernaryNode; struct ArrayNode; struct ExprWithIndexNode;
 struct IndexNode; struct XORNode; struct TableFieldNode;
 struct IfNode; struct ElseIfNode; struct DoNode; struct WhileNode;
@@ -37,6 +37,8 @@ struct Symbol {
     DataType data_type_;
     std::optional<std::vector<DataType>> return_types_ = std::nullopt;
 
+    std::optional<bool> have_const_attr = false;
+    std::optional<bool> have_close_attr = false;
     bool is_used_ = false;
     Node* node_ = nullptr;
 };
@@ -69,6 +71,7 @@ public:
     virtual void visit(VarWithAttributeNode*) = 0;
     virtual void visit(DefineVariableNode*) = 0;
     virtual void visit(MultipleVariableNode*) = 0;
+    virtual void visit(IdentNode*) = 0;
     virtual void visit(AndTernaryNode*) = 0;
     virtual void visit(OrTernaryNode*) = 0;
     virtual void visit(ArrayNode*) = 0;
@@ -114,6 +117,14 @@ public:
     FunctionNode* currentFuncScope();
 
     // variable things 
+    // should add IdentNode and use it for parse_ident()
+    // cuz MultipleVariableNode have local kw
+    // local a, b, c = 1, 2
+    // and we need something like 
+    // a, b, c = 1, 2, "hi"
+    // so add new node in parser.hpp (done)
+    // change parse_ident() in parser.cpp (in process)
+    // and make another correct visit for it
     void visit(DefineVariableNode*) override final;
     void visit(VariableNode*) override final;
     void visit(MultipleVariableNode*) override final;
@@ -121,6 +132,7 @@ public:
     void visit(UnaryOpNode*) override final;
     void visit(MemberAccessNode*) override final;
     void visit(VarWithAttributeNode*) override final;
+    void visit(IdentNode*) override final;
 
     // function things  
     void visit(FunctionNode*) override final;

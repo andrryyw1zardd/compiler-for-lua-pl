@@ -166,6 +166,25 @@ struct MultipleVariableNode : Node {
     }
 };
 
+struct IdentNode : Node {
+    Type op;
+    std::vector<Node*, ArenaAllocator<Node*>> left_side;
+    std::vector<Node*, ArenaAllocator<Node*>> right_side;
+
+    IdentNode(Type op, 
+              std::vector<Node*, ArenaAllocator<Node*>> ls,
+              std::vector<Node*, ArenaAllocator<Node*>> rs) 
+    : op(op), left_side(std::move(ls)), right_side(std::move(rs)) { }
+
+    std::string_view getName() const override {
+        return "IdentNode";
+    }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
+};
+
 struct AndTernaryNode : Node {
     Node* left;
     Node* right;

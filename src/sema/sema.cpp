@@ -332,28 +332,54 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
     maNode->node_data_type = maNode->value->node_data_type;
 }
 
-// add_into_symbols and dont let the value change
 void SemanticAnalyzer::visit(VarWithAttributeNode* vaNode) {
     vaNode->right->accept(*this);
 
+    std::string vaName = std::get<std::string>(vaNode->value.value);
+    if (scopes_.back()->has_locally(vaName)) {
+        diags_.collect_diags(
+            "redefinition of variable", vaName,
+            DiagnosticEngine::DiagType::ERROR, vaNode);
+
+        return;
+    }
+
+    Symbol symb = {
+        .kind_ = Symbol::Kind::LOCAL,
+        .data_type_ = *vaNode->right->node_data_type,
+        .is_used_ = false, 
+        .node_ = vaNode 
+    };
+    scopes_.back()->add_into_symbols(vaName, symb);
+
     switch (vaNode->type) {
         case Type::KW_CONST:
+            symb.have_const_attr = true;
+
+            if (!vaNode->right) {
+                diags_.collect_diags(
+                    "const variable must have rvalue. variable", vaName,
+                    DiagnosticEngine::DiagType::ERROR, vaNode);
+                break;
+            }
+
             vaNode->node_data_type = vaNode->right->node_data_type;
             break;
 
         case Type::KW_CLOSE:
+            symb.have_close_attr = true;
             vaNode->node_data_type = vaNode->right->node_data_type;
             break;
 
         default:
-            std::string name = std::get<std::string>(vaNode->value.value);
-
             diags_.collect_diags(
-                "invalid attribute of variable", name,
+                "invalid attribute of variable", vaName,
                 DiagnosticEngine::DiagType::ERROR, vaNode);
-
             break;
     }
+}
+
+void SemanticAnalyzer::visit(IdentNode* iNode) {
 }
 
 void SemanticAnalyzer::visit(FunctionNode* fNode) {
@@ -598,14 +624,14 @@ void SemanticAnalyzer::visit(AndTernaryNode* atNode) {
     atNode->left->accept(*this);
     atNode->right->accept(*this);
 
-    if (atNode->left->node_data_type != Symbol::DataType::BOOL ) {
+    if (atNode->left->node_data_type != Symbol::DataType::BOOL) {
         diags_.collect_diags(
             "invalid data type of", std::string(atNode->left->getName()),
             DiagnosticEngine::DiagType::ERROR, atNode->left);
         atNode->node_data_type = Symbol::DataType::NIL;
     }
 
-    if (atNode->right->node_data_type != Symbol::DataType::BOOL ) {
+    if (atNode->right->node_data_type != Symbol::DataType::BOOL) {
         diags_.collect_diags(
             "invalid data type of", std::string(atNode->right->getName()),
             DiagnosticEngine::DiagType::ERROR, atNode->right);

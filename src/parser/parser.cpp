@@ -106,7 +106,7 @@ Node* Parser::parse_ident() {
             right_side.push_back(parse_expr(0));
         }
 
-        return make<MultipleVariableNode>(alloc, 1, Type::EQUAL, std::move(left_side), std::move(right_side)); 
+        return make<IdentNode>(alloc, 1, Type::EQUAL, std::move(left_side), std::move(right_side)); 
     }
 
     if (left_side.size() == 1 && 
