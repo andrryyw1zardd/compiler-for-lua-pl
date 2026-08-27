@@ -5,6 +5,8 @@
 
 Arena arena(1024 * 1024);
 ArenaAllocator<Node*> alloc(arena);
+ArenaAllocator<Type> alloc_for_type(arena);
+ArenaAllocator<bool> alloc_for_bool(arena);
 
 const Token& Parser::peek() {
     static const Token eof {.type = Type::END_OF_FILE};
@@ -120,105 +122,78 @@ Node* Parser::parse_ident() {
 
 Node* Parser::parse_local() {
     advance();
-    bool isConst = false;
+
+    [[maybe_unused]] 
+    bool isClose = false;
+
+    std::vector<bool> const_vect;
+    std::vector<Node*, ArenaAllocator<Node*>> left_side(alloc);
+    std::vector<Node*, ArenaAllocator<Node*>> right_side(alloc);
 
     if (!check(Type::IDENT)) {
         if (check(Type::KW_FUNCTION)) {
             return parse_function(true);
         }
-        if (check(Type::KW_CONST)) {
-            isConst = true;
-            advance();
-        }
         else throwError(Type::KW_FUNCTION);
     }
 
-    Token name = peek();
-    Node* expr = nullptr;
+    auto left = nud();
+    left_side.push_back(left);
 
-    std::vector<Node*, ArenaAllocator<Node*>> left_side(alloc);
-    std::vector<Node*, ArenaAllocator<Node*>> right_side(alloc);
+    if (check(Type::LESS)) {
+        advance();
+        Type attr = peek().type;
 
-    if (checkNext(Type::COMMA)) {
-        Node* left = parse_expr(0);
-        left_side.push_back(left);
+        if (attr == Type::KW_CONST) {
+            advance();
+            const_vect.push_back(true);
+        }
+        else if (attr == Type::KW_CLOSE) { isClose = true; advance(); }
+        else throwError(Type::KW_CONST);
+
+        expect(Type::GREATER);
+    }
+    else const_vect.push_back(false); 
+
+    while (check(Type::COMMA)) {
+        if (check(Type::COMMA)) advance();
+
+        if (check(Type::LESS)) {
+            advance();
+            Type attr = peek().type;
+
+            if (attr == Type::KW_CONST) {
+                advance();
+                const_vect.push_back(true);
+            }
+            else if (attr == Type::KW_CLOSE) { isClose = true; advance(); }
+            else throwError(Type::KW_CONST);
+
+            expect(Type::GREATER);
+        }
+        else const_vect.push_back(false);
+
+        left_side.push_back(nud());
+    }
+
+    if (check(Type::EQUAL)) {
+        advance();
+
+        auto right = parse_expr(0);
+        right_side.push_back(right);
 
         while (check(Type::COMMA)) {
             if (check(Type::COMMA)) advance();
-            left_side.push_back(parse_expr(0));
-        }
 
-        if (check(Type::EQUAL)) {
-            advance();
-
-            Node* right = parse_expr(0);
-            right_side.push_back(right);
-
-            if (check(Type::COMMA)) {
-                while (check(Type::COMMA)) {
-                    if (check(Type::COMMA)) advance();
-                    right_side.push_back(parse_expr(0));
-                }
-
-                return make<MultipleVariableNode>(alloc, 1, 
-                    Type::EQUAL,
-                    std::move(left_side), 
-                    std::move(right_side)
-                );
-            }
-            else {
-                return make<MultipleVariableNode>(alloc, 1, 
-                    Type::EQUAL,
-                    std::move(left_side),
-                    std::move(right_side)
-                );
-            }
-        }
-        else {
-            return make<MultipleVariableNode>(alloc, 1, 
-                Type::EQUAL,
-                std::move(left_side),
-                std::move(right_side)
-            );
+            right_side.push_back(parse_expr(0));
         }
     }
-    else if (checkNext(Type::EQUAL)) {
-        advance();
-        advance();
-        expr = parse_expr(0);
 
-        return make<DefineVariableNode>(alloc, 1, std::move(name), expr);
-    }
-    else if (checkNext(Type::LESS)) {
-        advance();
-        advance();
-        Type type;
-
-        if (check(Type::KW_CLOSE) || check(Type::KW_CONST)) {
-            type = peek().type; 
-            advance();
-        }
-        else throwError(Type::KW_CLOSE);
-
-        expect(Type::GREATER);
-        expect(Type::EQUAL);
-
-        auto right = parse_expr(0);
-
-        return make<VarWithAttributeNode>(alloc, 1, 
-            type,
-            std::move(name),
-            right
-        );
-    }
-    if (isConst && !checkNext(Type::EQUAL)) {
-        throwError(Type::EQUAL);
-    }
-    else advance();
-
-    return make<DefineVariableNode>(alloc, 1, 
-        std::move(name),
-        expr
+    return make<MultipleVariableNode>(
+        alloc, 1,
+        std::move(const_vect),
+        std::move(left_side),
+        std::move(right_side)
     );
 }
 
@@ -485,6 +460,7 @@ std::vector<Node*, ArenaAllocator<Node*>> Parser::parse_block() {
         }
     }
 
+    arena.free();
     return block;
 }
 

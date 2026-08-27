@@ -114,48 +114,15 @@ struct VariableNode : Node {
     }
 };
 
-struct VarWithAttributeNode : Node {
-    Type type;
-    Token value;
-    Node* right;
-
-    VarWithAttributeNode (Type t, Token v, Node* r)
-        : type(t), value(std::move(v)), right(r) { }  
-
-    std::string_view getName() const override {
-        return "VarWithAttributeNode";
-    }
-
-    void accept(Visitor& v) override {
-        v.visit(this);
-    }
-};
-
-struct DefineVariableNode : Node {
-    Token value;
-    Node* right;
-
-    DefineVariableNode(Token v, Node* r)
-        : value(std::move(v)), right(r) { }  
-
-    std::string_view getName() const override {
-        return "DefineVariableNode";
-    }
-
-    void accept(Visitor& v) override {
-        v.visit(this);
-    }
-};
-
 struct MultipleVariableNode : Node {
-    Type op;
+    std::vector<bool> const_vect;
     std::vector<Node*, ArenaAllocator<Node*>> left_side;
     std::vector<Node*, ArenaAllocator<Node*>> right_side;
 
-    MultipleVariableNode(Type op, 
+    MultipleVariableNode(std::vector<bool> cv,
                          std::vector<Node*, ArenaAllocator<Node*>> ls,
                          std::vector<Node*, ArenaAllocator<Node*>> rs) 
-    : op(op), left_side(std::move(ls)), right_side(std::move(rs)) { }
+    : const_vect(std::move(cv)), left_side(std::move(ls)), right_side(std::move(rs)) { }
 
     std::string_view getName() const override {
         return "MultipleVariableNode";
@@ -171,7 +138,7 @@ struct IdentNode : Node {
     std::vector<Node*, ArenaAllocator<Node*>> left_side;
     std::vector<Node*, ArenaAllocator<Node*>> right_side;
 
-    IdentNode(Type op, 
+    IdentNode(Type op,
               std::vector<Node*, ArenaAllocator<Node*>> ls,
               std::vector<Node*, ArenaAllocator<Node*>> rs) 
     : op(op), left_side(std::move(ls)), right_side(std::move(rs)) { }
