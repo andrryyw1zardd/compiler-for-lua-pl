@@ -146,7 +146,8 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
     std::vector<Symbol::DataType> lDtVect;
 
     // this loop is for the left side to be correctly handled
-    for (const auto& left: mvNode->left_side) {
+    for (size_t i = 0; i < mvNode->left_side.size(); ++i) {
+        auto left = mvNode->left_side[i];
         VariableNode* converted = dynamic_cast<VariableNode*>(left);
 
         if (!converted) {
@@ -165,6 +166,10 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
             .is_used_ = false, 
             .node_ = left 
         };
+
+        if (mvNode->const_vect[i]) vSymb.have_const_attr = true;
+        else vSymb.have_const_attr = false;
+
         scopes_.back()->add_into_symbols(lName, vSymb);
     }
 
@@ -371,75 +376,6 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
     symb->is_used_ = true;
     maNode->node_data_type = maNode->value->node_data_type;
 }
-//
-// void SemanticAnalyzer::visit(VarWithAttributeNode* vaNode) {
-//     std::vector<std::string> lNameVect;
-//     std::vector<Symbol::DataType> lDtVect;
-//
-//     for (size_t i = 0; i < vaNode->left_side.size(); ++i) {
-//         VariableNode* converted = dynamic_cast<VariableNode*>(vaNode->left_side[i]);
-//         if (!converted) {
-//             diags_.collect_diags(
-//                 "expected variable but got", std::string(vaNode->left_side[i]->getName()),
-//                 DiagnosticEngine::DiagType::ERROR, vaNode->left_side[i]);
-//             return;
-//         }
-//
-//         std::string vaName = std::get<std::string>(converted->value.value);
-//         if (scopes_.back()->has_locally(vaName)) {
-//             diags_.collect_diags(
-//                 "redefinition of variable", vaName,
-//                 DiagnosticEngine::DiagType::ERROR, vaNode);
-//
-//             return;
-//         }
-//
-//         Symbol symb = {
-//             .kind_ = Symbol::Kind::LOCAL,
-//             .data_type_ = Symbol::DataType::UNKNOWN,
-//             .is_used_ = false, 
-//             .node_ = vaNode->left_side[i] 
-//         };
-//
-//         if (vaNode->types[i] == Type::KW_CONST) {
-//             symb.have_const_attr = true;
-//         }
-//         else if (vaNode->types[i] == Type::KW_CLOSE) {
-//             symb.have_close_attr = true;
-//         }
-//
-//         lNameVect.push_back(vaName);
-//         scopes_.back()->add_into_symbols(vaName, symb);
-//     }
-//
-//     for (const auto& right: vaNode->right_side) {
-//         right->accept(*this);
-//         FunctionCallNode* converted = dynamic_cast<FunctionCallNode*>(right);
-//
-//         if (!converted || !converted->ret_data_types || converted->ret_data_types->empty()) {
-//             if (right->node_data_type) lDtVect.push_back(*right->node_data_type);
-//             else lDtVect.push_back(Symbol::DataType::UNKNOWN);
-//         }
-//         else {
-//             const auto& rets = converted->ret_data_types.value();
-//
-//             if (right == vaNode->right_side.back()) 
-//                 for (const auto& ret: rets) lDtVect.push_back(ret);
-//             else lDtVect.push_back(rets[0]);
-//         }
-//     }
-//
-//     for (size_t i = 0; i < lNameVect.size(); ++i) {
-//         auto lSymb = scopes_.back()->lookup(lNameVect[i], diags_);
-//
-//         if (!lSymb) {
-//             assert(lSymb && "symbol was just added but lookup returned nullptr");
-//         }
-//
-//         if (lDtVect.size() > i) { lSymb->data_type_ = lDtVect[i]; }
-//         else lSymb->data_type_ = Symbol::DataType::NIL;
-//     }
-// }
 
 void SemanticAnalyzer::visit(FunctionNode* fNode) {
     std::string funcName = std::get<std::string>(fNode->value.value);

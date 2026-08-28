@@ -137,6 +137,7 @@ Node* Parser::parse_local() {
         else throwError(Type::KW_FUNCTION);
     }
 
+    // better use VariableNode{.name = peek()} instead of nud()
     auto left = nud();
     left_side.push_back(left);
 
