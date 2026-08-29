@@ -26,6 +26,7 @@ public:
                        const std::string&, 
                        const DiagType&,
                        const Node*);
+    std::vector<std::string>* get_diags();
 };
 
 struct Symbol {
@@ -103,6 +104,9 @@ public:
     }
 
     void initGLobals();
+ 
+    void print_diags();
+    int diag_count();
 
     void makeScope();
     void removeScope();
@@ -113,20 +117,13 @@ public:
     FunctionNode* currentFuncScope();
 
     // variable things 
-    // should add IdentNode and use it for parse_ident()
-    // cuz MultipleVariableNode have local kw
-    // local a, b, c = 1, 2
-    // and we need something like 
-    // a, b, c = 1, 2, "hi"
-    // so add new node in parser.hpp (done)
-    // change VarWithAttributeNodes handling in parser.cpp (in process)
-    // and make another correct visit for it
     void visit(VariableNode*) override final;
     void visit(MultipleVariableNode*) override final;
     void visit(IdentNode*) override final;
     void visit(BasicDataNode*) override final;
     void visit(UnaryOpNode*) override final;
     void visit(MemberAccessNode*) override final;
+    void visit(ArrayNode*) override final;
 
     // function things  
     void visit(FunctionNode*) override final;
@@ -138,6 +135,25 @@ public:
     void visit(AndTernaryNode*) override final;
     void visit(OrTernaryNode*) override final;
     void visit(BitwiseNode*) override final;
+
+    // unrealized ones
+    void visit(XORNode*) override final;
+
+    void visit(ExprWithIndexNode*) override final;
+    void visit(IndexNode*) override final;
+    void visit(TableFieldNode*) override final;
+
+    void visit(IfNode*) override final;
+    void visit(ElseIfNode*) override final;
+    void visit(DoNode*) override final;
+    void visit(WhileNode*) override final;
+    void visit(NumericForNode*) override final;
+    void visit(GenericForNode*) override final;
+    void visit(RepeatUntilNode*) override final;
+
+    void visit(AnonFunction*) override final;
+    void visit(MethodNode*) override final;
+    void visit(MethodCallNode*) override final;
 };
 
 #endif

@@ -2,6 +2,7 @@
 #include <string_view>
 #include <format>
 #include <algorithm>
+#include <iostream>
 
 Arena arena(1024 * 1024);
 ArenaAllocator<Node*> alloc(arena);
@@ -56,24 +57,36 @@ void Parser::throwError(Type expected) {
     std::string_view exp = TokenToStrArray[static_cast<size_t>(expected)];
 
     if (std::ranges::find(TokenToStrArray, exp) != TokenToStrArray.end()) expectedStr = exp;
-    else throw std::runtime_error(
-        std::format("internal compiler error: type not found in tokentostrmap in line {}, col {}",
-                    positionY, positionX)
+    else parser_diag_vect.push_back(
+        std::format(
+            "internal compiler error: type not found in tokentostrmap in line {}, col {}",
+            positionY, positionX)
     );
 
     std::string_view act = TokenToStrArray[static_cast<size_t>(peek().type)];
 
     if (std::ranges::find(TokenToStrArray, act) != TokenToStrArray.end()) actualStr = act;
-    else throw std::runtime_error(
+    else parser_diag_vect.push_back( 
         std::format("internal compiler error: type not found in tokentostrmap in line {}, col {}",
                     positionY, positionX)
     );
 
-    throw std::runtime_error(
+    parser_diag_vect.push_back( 
         std::format("Runtime Error at line {} col {}: expected {} but got {}",
                     positionY, positionX,
                     expectedStr, actualStr)
     );
+}
+
+void Parser::print_diags() {
+    // output of errors detected by the parser
+    for (const auto& pdv: parser_diag_vect) {
+        std::cout << pdv << std::endl;
+    }
+}
+
+int Parser::diag_count() {
+    return parser_diag_vect.size();
 }
 
 bool Parser::endblock() {

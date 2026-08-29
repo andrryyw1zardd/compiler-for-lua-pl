@@ -3,6 +3,7 @@
 #include <format>
 #include <cassert>
 #include <utility>
+#include <iostream>
 
 void SemanticAnalyzer::makeScope() {
     auto scope = std::make_unique<Scope>(scopes_.back().get());
@@ -28,6 +29,16 @@ bool Scope::has_locally(const std::string& name) const {
 
 Scope* Scope::get_parent() {
     return this->parent_;
+}
+
+void SemanticAnalyzer::print_diags() {
+    for (const auto& diag: *diags_.get_diags()) {
+        std::cout << diag << std::endl;
+    }
+}
+
+int SemanticAnalyzer::diag_count() {
+    return diags_.get_diags()->size();
 }
 
 Symbol* Scope::lookup(const std::string& name, DiagnosticEngine& de) {
@@ -85,6 +96,10 @@ void DiagnosticEngine::collect_diags(
                                            node->position.x);
 
     diag_vect_.push_back(formated_mes);
+}
+
+std::vector<std::string>* DiagnosticEngine::get_diags() {
+    return &diag_vect_;
 }
 
 void SemanticAnalyzer::initGLobals() {
@@ -228,7 +243,7 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
                 "undefined identificator", lName,
                 DiagnosticEngine::DiagType::ERROR, left);
         }
-        if (symb->have_const_attr) {
+        if (symb->have_const_attr.value_or(false)) {
             diags_.collect_diags(
                 "variable with const attribute cant be modified. variable", lName,
                 DiagnosticEngine::DiagType::ERROR, left);
@@ -375,6 +390,12 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
 
     symb->is_used_ = true;
     maNode->node_data_type = maNode->value->node_data_type;
+}
+
+void SemanticAnalyzer::visit(ArrayNode* aNode) {
+    for (const auto& el: aNode->elements) { el->accept(*this); }
+
+    aNode->node_data_type = Symbol::DataType::TABLE;
 }
 
 void SemanticAnalyzer::visit(FunctionNode* fNode) {

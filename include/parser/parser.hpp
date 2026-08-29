@@ -523,7 +523,7 @@ private:
     bool check(Type type);
     bool checkNext(Type type); 
     void expect(Type type);
-    [[noreturn]] void throwError(Type expected);
+    void throwError(Type expected);
      
     bool endblock();
     int  get_lbp(); 
@@ -542,7 +542,11 @@ private:
     Node* parse_ident();
     Node* parse_method(Token className, bool isLocal); 
 
+    std::vector<std::string> parser_diag_vect;
+
 public:
+    void print_diags();
+    int diag_count();
     std::vector<Node*, ArenaAllocator<Node*>> parse_block(); 
     Node* parse_stat();
 
