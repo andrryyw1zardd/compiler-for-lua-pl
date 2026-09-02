@@ -5,6 +5,7 @@
 #include <memory>
 #include <unordered_map>
 #include <optional>
+#include <variant>
 
 struct Node; struct UnaryOpNode; struct BinaryOpNode; struct BitwiseNode;
 struct MemberAccessNode; struct BasicDataNode; struct VariableNode;
@@ -35,9 +36,11 @@ struct Symbol {
 
     enum class DataType { INT, FLOAT, TABLE, STRING, BOOL, NIL, UNKNOWN };
     DataType data_type_;
+    // too much optional shit here, must do something about it 
     std::optional<std::vector<DataType>> return_types_ = std::nullopt;
 
     std::optional<bool> have_const_attr = false;
+    std::optional<std::unordered_map<std::variant<std::string, int>, Symbol::DataType>> element_types = std::nullopt;
     bool is_used_ = false;
     Node* node_ = nullptr;
 };
@@ -123,13 +126,18 @@ public:
     void visit(BasicDataNode*) override final;
     void visit(UnaryOpNode*) override final;
     void visit(MemberAccessNode*) override final;
+
+    // table things
     void visit(ArrayNode*) override final;
+    void visit(TableFieldNode*) override final;
+    void visit(ExprWithIndexNode*) override final;
 
     // function things  
     void visit(FunctionNode*) override final;
     void visit(ReturnNode*) override final;
     void visit(FunctionCallNode*) override final;
 
+    // ------------------------------------------------------
     // operation things
     void visit(BinaryOpNode*) override final;
     void visit(AndTernaryNode*) override final;
@@ -137,11 +145,7 @@ public:
     void visit(BitwiseNode*) override final;
 
     // unrealized ones
-    void visit(XORNode*) override final;
-
-    void visit(ExprWithIndexNode*) override final;
     void visit(IndexNode*) override final;
-    void visit(TableFieldNode*) override final;
 
     void visit(IfNode*) override final;
     void visit(ElseIfNode*) override final;

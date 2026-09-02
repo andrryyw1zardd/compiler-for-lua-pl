@@ -8,6 +8,7 @@
 #include "allocator/alloc.hpp"
 #include "sema/sema.hpp"
 #include <optional>
+#include <unordered_map>
 
 struct Node {
     Vect2 position;
@@ -186,6 +187,7 @@ struct OrTernaryNode : Node {
 
 struct ArrayNode : Node {
     std::vector<Node*, ArenaAllocator<Node*>> elements;
+    std::optional<std::unordered_map<std::variant<std::string, int>, Symbol::DataType>> element_types = std::nullopt;
 
     ArrayNode(std::vector<Node*, ArenaAllocator<Node*>> e) : elements(std::move(e)) { }
 
@@ -201,6 +203,7 @@ struct ArrayNode : Node {
 struct ExprWithIndexNode : Node {
     Node* left;
     Node* index_expr;
+    std::optional<std::unordered_map<std::variant<std::string, int>, Symbol::DataType>> element_types = std::nullopt;
 
     ExprWithIndexNode(Node* l, Node* ie) 
     : left(l), index_expr(ie) { }
@@ -221,22 +224,6 @@ struct IndexNode : Node {
 
     std::string_view getName() const override {
         return "IndexNode";
-    }
-
-    void accept(Visitor& v) override {
-        v.visit(this);
-    }
-};
-
-struct XORNode : Node {
-    Node* left;
-    Node* right;
-
-    XORNode(Node* l, Node* r) 
-    : left(l), right(r) { }
-
-    std::string_view getName() const override {
-        return "XORNode";
     }
 
     void accept(Visitor& v) override {

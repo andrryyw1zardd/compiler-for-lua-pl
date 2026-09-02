@@ -155,7 +155,6 @@ void SemanticAnalyzer::visit(VariableNode* vNode) {
     }
 }
 
-// add const attr handling
 void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
     std::vector<std::string> lNameVect;
     std::vector<Symbol::DataType> lDtVect;
@@ -189,21 +188,40 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
     }
 
     // and this loop if for the right side 
-    for (const auto& right: mvNode->right_side) {
+    for (size_t i = 0; i < mvNode->right_side.size(); ++i) {
+        auto right = mvNode->right_side[i];
         right->accept(*this);
-        FunctionCallNode* converted = dynamic_cast<FunctionCallNode*>(right);
 
-        if (!converted || !converted->ret_data_types || converted->ret_data_types->empty()) {
-            if (right->node_data_type) lDtVect.push_back(*right->node_data_type);
-            else lDtVect.push_back(Symbol::DataType::UNKNOWN);
-        }
-        else {
+        FunctionCallNode* converted = dynamic_cast<FunctionCallNode*>(right);
+        ArrayNode* converted_arr = dynamic_cast<ArrayNode*>(right);
+
+        if (converted && converted->ret_data_types && !converted->ret_data_types->empty()) {
             const auto& rets = converted->ret_data_types.value();
 
             if (right == mvNode->right_side.back()) 
                 for (const auto& ret: rets) lDtVect.push_back(ret);
             else lDtVect.push_back(rets[0]);
+
+            continue;
         }
+
+        if (converted_arr) {
+            if (i < lNameVect.size()) {
+                Symbol* symb = scopes_.back()->lookup(lNameVect[i], diags_);
+                if (!symb) {
+                    // diags
+                    return;
+                }
+
+                symb->element_types = converted_arr->element_types;
+            }
+
+            lDtVect.push_back(Symbol::DataType::TABLE);
+            continue;
+        }
+
+        if (right->node_data_type) lDtVect.push_back(*right->node_data_type);
+        else lDtVect.push_back(Symbol::DataType::UNKNOWN);
     }
 
     // finally this loop connects left and right sides
@@ -250,21 +268,40 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
         }
     }
 
-    for (const auto& right: iNode->right_side) {
+    for (size_t i = 0; i < iNode->right_side.size(); ++i) {
+        auto right = iNode->right_side[i];
         right->accept(*this);
-        FunctionCallNode* converted = dynamic_cast<FunctionCallNode*>(right);
 
-        if (!converted || !converted->ret_data_types || converted->ret_data_types->empty()) {
-            if (right->node_data_type) lDtVect.push_back(*right->node_data_type);
-            else lDtVect.push_back(Symbol::DataType::UNKNOWN);
-        }
-        else {
+        FunctionCallNode* converted = dynamic_cast<FunctionCallNode*>(right);
+        ArrayNode* converted_arr = dynamic_cast<ArrayNode*>(right);
+
+        if (converted && converted->ret_data_types && !converted->ret_data_types->empty()) {
             const auto& rets = converted->ret_data_types.value();
 
             if (right == iNode->right_side.back()) 
                 for (const auto& ret: rets) lDtVect.push_back(ret);
             else lDtVect.push_back(rets[0]);
+
+            continue;
         }
+
+        if (converted_arr) {
+            if (i < lNameVect.size()) {
+                Symbol* symb = scopes_.back()->lookup(lNameVect[i], diags_);
+                if (!symb) {
+                    // diags
+                    return;
+                }
+
+                symb->element_types = converted_arr->element_types;
+            }
+
+            lDtVect.push_back(Symbol::DataType::TABLE);
+            continue;
+        }
+
+        if (right->node_data_type) lDtVect.push_back(*right->node_data_type);
+        else lDtVect.push_back(Symbol::DataType::UNKNOWN);
     }
     
     for (size_t i = 0; i < lNameVect.size(); ++i) {
@@ -393,9 +430,131 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
 }
 
 void SemanticAnalyzer::visit(ArrayNode* aNode) {
-    for (const auto& el: aNode->elements) { el->accept(*this); }
+    std::optional<std::unordered_map<std::variant<std::string, int>, Symbol::DataType>> element_types;
+    element_types.emplace();
+    int index = 1;
+
+    for (const auto& el: aNode->elements) { 
+        el->accept(*this);
+
+        TableFieldNode* converted = dynamic_cast<TableFieldNode*>(el);
+        if (!converted) {
+            element_types.value()[index++] = el->node_data_type.value();
+            continue;
+        }
+
+        VariableNode* conv_var = dynamic_cast<VariableNode*>(converted->key);
+        IndexNode* conv_index = dynamic_cast<IndexNode*>(converted->key);
+
+        if (conv_var) {
+            std::string key_str = std::get<std::string>(conv_var->value.value);
+            element_types.value()[key_str] = converted->value->node_data_type.value();
+        }
+        else if (conv_index) {
+        }
+        else {
+            diags_.collect_diags(
+                "unexpected data type", std::string(converted->key->getName()),
+                DiagnosticEngine::DiagType::ERROR, converted->key);
+        }
+    }
 
     aNode->node_data_type = Symbol::DataType::TABLE;
+    aNode->element_types = element_types;
+}
+
+void SemanticAnalyzer::visit(TableFieldNode* tfNode) {
+    tfNode->value->accept(*this);
+    tfNode->node_data_type = tfNode->value->node_data_type;
+}
+
+void SemanticAnalyzer::visit(ExprWithIndexNode* eNode) {
+    VariableNode* converted_left = dynamic_cast<VariableNode*>(eNode->left);
+
+    if (!converted_left) {
+        diags_.collect_diags(
+            "expected data type 'table' but got", std::string(eNode->left->getName()),
+            DiagnosticEngine::DiagType::ERROR, eNode);
+        return;
+    }
+
+    std::string name_left = std::get<std::string>(converted_left->value.value);
+    Symbol* symb = scopes_.back()->lookup(name_left, diags_);
+
+    if (!symb) {
+        diags_.collect_diags(
+            "undefined indentificator", name_left,
+            DiagnosticEngine::DiagType::ERROR, converted_left);
+        return;
+    }
+
+    if (symb->data_type_ != Symbol::DataType::TABLE || !symb->element_types) {
+        diags_.collect_diags(
+            "expected data type 'table' but got", name_left,
+            DiagnosticEngine::DiagType::ERROR, converted_left);
+        return;
+    }
+
+    symb->is_used_ = true;
+    eNode->index_expr->accept(*this);
+
+    BasicDataNode* converted_ind_bd = dynamic_cast<BasicDataNode*>(eNode->index_expr);
+    VariableNode* converted_ind_var = dynamic_cast<VariableNode*>(eNode->index_expr);
+    std::variant<BasicDataNode*, VariableNode*> converted;
+
+    if (converted_ind_bd) {
+        converted = converted_ind_bd;
+    }
+    else if (converted_ind_var) {
+        converted = converted_ind_var;
+    }
+    else {
+        diags_.collect_diags(
+            "undefined index in table", name_left,
+            DiagnosticEngine::DiagType::ERROR, eNode->index_expr
+        );
+        return;
+    }
+
+    std::visit(
+        [&](auto* node){
+            if (node->value.type == Type::LIT_INT) {
+                auto value = std::get<int>(node->value.value);
+                auto data_type = symb->element_types.value().find(value);
+
+                if (data_type != symb->element_types.value().end()) {
+                    eNode->node_data_type = data_type->second;
+                }
+                else {
+                    diags_.collect_diags(
+                        "undefined index in table", name_left,
+                        DiagnosticEngine::DiagType::ERROR, node
+                    );
+                }
+            }
+            else if (node->value.type == Type::LIT_STRING || node->value.type == Type::IDENT) {
+                auto value = std::get<std::string>(node->value.value);
+                auto data_type = symb->element_types.value().find(value);
+
+                if (data_type != symb->element_types.value().end()) {
+                    eNode->node_data_type = data_type->second;
+                }
+                else {
+                    diags_.collect_diags(
+                        "undefined index in table", name_left,
+                        DiagnosticEngine::DiagType::ERROR, node
+                    );
+                }
+            }
+            else { 
+                diags_.collect_diags(
+                    "undefined index in table", name_left,
+                    DiagnosticEngine::DiagType::ERROR, node
+                );
+            }
+        },
+        converted
+    );
 }
 
 void SemanticAnalyzer::visit(FunctionNode* fNode) {
