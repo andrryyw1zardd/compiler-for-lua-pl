@@ -41,7 +41,7 @@ int SemanticAnalyzer::diag_count() {
     return diags_.get_diags()->size();
 }
 
-Symbol* Scope::lookup(const std::string& name, DiagnosticEngine& de) {
+Symbol* Scope::lookup(const std::string& name) {
     auto itValue = variables_.find(name);
 
     if (itValue != variables_.end()) {
@@ -49,7 +49,7 @@ Symbol* Scope::lookup(const std::string& name, DiagnosticEngine& de) {
     }
 
     if (parent_) {
-        return parent_->lookup(name, de); 
+        return parent_->lookup(name); 
     }
 
     return nullptr;
@@ -137,7 +137,7 @@ void SemanticAnalyzer::initGLobals() {
 void SemanticAnalyzer::visit(VariableNode* vNode) {
     std::string val = std::get<std::string>(vNode->value.value);
 
-    Symbol* symb = scopes_.back()->lookup(val, diags_);
+    Symbol* symb = scopes_.back()->lookup(val);
 
     if (symb) {
         symb->is_used_ = true;
@@ -207,7 +207,7 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
 
         if (converted_arr) {
             if (i < lNameVect.size()) {
-                Symbol* symb = scopes_.back()->lookup(lNameVect[i], diags_);
+                Symbol* symb = scopes_.back()->lookup(lNameVect[i]);
                 if (!symb) {
                     // diags
                     return;
@@ -226,7 +226,7 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
 
     // finally this loop connects left and right sides
     for (size_t i = 0; i < lNameVect.size(); ++i) {
-        auto lSymb = scopes_.back()->lookup(lNameVect[i], diags_);
+        auto lSymb = scopes_.back()->lookup(lNameVect[i]);
 
         if (!lSymb) {
             assert(lSymb && "symbol was just added but lookup returned nullptr");
@@ -254,7 +254,7 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
         std::string lName = std::get<std::string>(converted->value.value);
         lNameVect.push_back(lName);
 
-        Symbol* symb = scopes_.back()->lookup(lName, diags_);
+        Symbol* symb = scopes_.back()->lookup(lName);
 
         if (!symb) {
             diags_.collect_diags(
@@ -287,7 +287,7 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
 
         if (converted_arr) {
             if (i < lNameVect.size()) {
-                Symbol* symb = scopes_.back()->lookup(lNameVect[i], diags_);
+                Symbol* symb = scopes_.back()->lookup(lNameVect[i]);
                 if (!symb) {
                     // diags
                     return;
@@ -305,7 +305,7 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
     }
     
     for (size_t i = 0; i < lNameVect.size(); ++i) {
-        auto lSymb = scopes_.back()->lookup(lNameVect[i], diags_);
+        auto lSymb = scopes_.back()->lookup(lNameVect[i]);
 
         if (!lSymb) {
             assert(lSymb && "symbol was just added but lookup returned nullptr");
@@ -409,7 +409,7 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
     maNode->value->accept(*this);
 
     std::string maName = std::get<std::string>(maNode->qualifier.value);
-    Symbol* symb = scopes_.back()->lookup(maName, diags_);
+    Symbol* symb = scopes_.back()->lookup(maName);
 
     if (!symb) {
         diags_.collect_diags(
@@ -417,6 +417,8 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
             DiagnosticEngine::DiagType::ERROR, maNode);
         return;
     }
+
+    maNode->node_data_type = maNode->value->node_data_type;
 
     if (maNode->node_data_type == Symbol::DataType::UNKNOWN) {
         diags_.collect_diags(
@@ -426,41 +428,77 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
     }
 
     symb->is_used_ = true;
-    maNode->node_data_type = maNode->value->node_data_type;
 }
 
 void SemanticAnalyzer::visit(ArrayNode* aNode) {
-    std::optional<std::unordered_map<std::variant<std::string, int>, Symbol::DataType>> element_types;
-    element_types.emplace();
+    std::optional<std::unordered_map<std::variant<std::string, int>, Symbol::DataType>> element_table;
+    element_table.emplace();
     int index = 1;
 
-    for (const auto& el: aNode->elements) { 
+    for (const auto& el: aNode->elements) {
         el->accept(*this);
+        TableFieldNode* el_converted = dynamic_cast<TableFieldNode*>(el);
 
-        TableFieldNode* converted = dynamic_cast<TableFieldNode*>(el);
-        if (!converted) {
-            element_types.value()[index++] = el->node_data_type.value();
-            continue;
+        if (el_converted) {
+            IndexNode* el_key_converted_index = dynamic_cast<IndexNode*>(el_converted->key);
+            VariableNode* el_key_converted_var = dynamic_cast<VariableNode*>(el_converted->key);
+
+            if (el_key_converted_index) {
+                BasicDataNode* index_expr_converted = dynamic_cast<BasicDataNode*>(el_key_converted_index->index_expr);
+
+                if (index_expr_converted) {
+                    if (index_expr_converted->value.type == Type::LIT_INT 
+                        ||index_expr_converted->value.type == Type::LIT_HEX)
+                    {
+                        int name = std::get<int>(index_expr_converted->value.value);
+
+                        if (el_converted->value->node_data_type.has_value()) {
+                            element_table.value()[name] = *el_converted->value->node_data_type;
+                        }
+                        else element_table.value()[name] = Symbol::DataType::UNKNOWN;
+                    }
+
+                    if (index_expr_converted->value.type == Type::LIT_STRING 
+                        ||index_expr_converted->value.type == Type::LIT_LONG_STRING
+                        ||index_expr_converted->value.type == Type::LIT_CHAR) 
+                    {
+                        std::string name = std::get<std::string>(index_expr_converted->value.value);
+
+                        if (el_converted->value->node_data_type.has_value()) {
+                            element_table.value()[name] = *el_converted->value->node_data_type;
+                        }
+                        else element_table.value()[name] = Symbol::DataType::UNKNOWN;
+                    }
+                }
+            }
+
+            else if (el_key_converted_var) {
+                std::string key_name = std::get<std::string>(el_key_converted_var->value.value);
+                
+                if (el_converted->value->node_data_type.has_value()) {
+                    element_table.value()[key_name] = *el_converted->value->node_data_type;
+                }
+                else element_table.value()[key_name] = Symbol::DataType::UNKNOWN;
+            }
+
+            else {
+                diags_.collect_diags(
+                    "unexpected node type", std::string(el_converted->getName()),
+                    DiagnosticEngine::DiagType::ERROR, el_converted);
+            }
         }
 
-        VariableNode* conv_var = dynamic_cast<VariableNode*>(converted->key);
-        IndexNode* conv_index = dynamic_cast<IndexNode*>(converted->key);
-
-        if (conv_var) {
-            std::string key_str = std::get<std::string>(conv_var->value.value);
-            element_types.value()[key_str] = converted->value->node_data_type.value();
-        }
-        else if (conv_index) {
-        }
+        // just an element
         else {
-            diags_.collect_diags(
-                "unexpected data type", std::string(converted->key->getName()),
-                DiagnosticEngine::DiagType::ERROR, converted->key);
+            if (el->node_data_type.has_value()) {
+                element_table.value()[index++] = *el->node_data_type;
+            }
+            else element_table.value()[index++] = Symbol::DataType::UNKNOWN;
         }
     }
 
     aNode->node_data_type = Symbol::DataType::TABLE;
-    aNode->element_types = element_types;
+    aNode->element_types = element_table;
 }
 
 void SemanticAnalyzer::visit(TableFieldNode* tfNode) {
@@ -479,7 +517,7 @@ void SemanticAnalyzer::visit(ExprWithIndexNode* eNode) {
     }
 
     std::string name_left = std::get<std::string>(converted_left->value.value);
-    Symbol* symb = scopes_.back()->lookup(name_left, diags_);
+    Symbol* symb = scopes_.back()->lookup(name_left);
 
     if (!symb) {
         diags_.collect_diags(
@@ -616,7 +654,7 @@ void SemanticAnalyzer::visit(ReturnNode* rNode) {
 
     std::string fName = std::get<std::string>(currentFuncScope()->value.value);
 
-    Symbol* symb = scopes_.back()->get_parent()->lookup(fName, diags_);
+    Symbol* symb = scopes_.back()->get_parent()->lookup(fName);
     if (!symb) {
         diags_.collect_diags(
             "function symbol not found in parent scope", 
@@ -650,7 +688,7 @@ void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
 
     std::string fcName = std::get<std::string>(converted->value.value);
 
-    auto symb = scopes_.back()->lookup(fcName, diags_);
+    auto symb = scopes_.back()->lookup(fcName);
     if (!symb) {
         diags_.collect_diags(
             "compiler: cant find function call name in symbol table", fcName,

@@ -4,10 +4,14 @@
 #include <algorithm>
 #include <iostream>
 
-Arena arena(1024 * 1024);
+Arena arena{1024 * 1024};
 ArenaAllocator<Node*> alloc(arena);
 ArenaAllocator<Type> alloc_for_type(arena);
 ArenaAllocator<bool> alloc_for_bool(arena);
+
+void Parser::free_arena() {
+    arena.free();
+}
 
 const Token& Parser::peek() {
     static const Token eof {.type = Type::END_OF_FILE};
@@ -474,7 +478,6 @@ std::vector<Node*, ArenaAllocator<Node*>> Parser::parse_block() {
         }
     }
 
-    arena.free();
     return block;
 }
 

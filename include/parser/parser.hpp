@@ -511,6 +511,7 @@ private:
     bool checkNext(Type type); 
     void expect(Type type);
     void throwError(Type expected);
+    void free_arena();
      
     bool endblock();
     int  get_lbp(); 
@@ -538,6 +539,7 @@ public:
     Node* parse_stat();
 
     Parser(std::vector<Token> VectorOfTokens) : listOfTokens(std::move(VectorOfTokens)) {}
+    ~Parser() { free_arena(); }
 };
 
 #endif

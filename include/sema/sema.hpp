@@ -10,12 +10,11 @@
 struct Node; struct UnaryOpNode; struct BinaryOpNode; struct BitwiseNode;
 struct MemberAccessNode; struct BasicDataNode; struct VariableNode;
 struct MultipleVariableNode; struct AndTernaryNode; struct IdentNode;
-struct OrTernaryNode; struct ArrayNode; struct ExprWithIndexNode;
-struct IndexNode; struct XORNode; struct TableFieldNode;
-struct IfNode; struct ElseIfNode; struct DoNode; struct WhileNode;
-struct NumericForNode; struct GenericForNode; struct RepeatUntilNode;
-struct FunctionNode; struct AnonFunction; struct MethodNode;
-struct FunctionCallNode; struct MethodCallNode; struct ReturnNode;
+struct OrTernaryNode; struct ArrayNode; struct ExprWithIndexNode; struct ReturnNode;
+struct IndexNode; struct TableFieldNode; struct IfNode; struct ElseIfNode;
+struct DoNode; struct WhileNode; struct NumericForNode; struct MethodCallNode;
+struct GenericForNode; struct RepeatUntilNode; struct FunctionNode;
+struct AnonFunction; struct MethodNode; struct FunctionCallNode; 
 
 class DiagnosticEngine {
 private:
@@ -56,7 +55,7 @@ public:
 
     void add_into_symbols(const std::string&, const Symbol&);
     bool has_locally(const std::string& name) const;
-    Symbol* lookup(const std::string& name, DiagnosticEngine& de);
+    Symbol* lookup(const std::string& name);
     Scope* get_parent();
 };
  
@@ -77,7 +76,6 @@ public:
     virtual void visit(ArrayNode*) = 0;
     virtual void visit(ExprWithIndexNode*) = 0;
     virtual void visit(IndexNode*) = 0;
-    virtual void visit(XORNode*) = 0;
     virtual void visit(TableFieldNode*) = 0;
     virtual void visit(IfNode*) = 0;
     virtual void visit(ElseIfNode*) = 0;
