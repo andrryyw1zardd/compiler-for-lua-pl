@@ -11,10 +11,10 @@ struct Node; struct UnaryOpNode; struct BinaryOpNode; struct BitwiseNode;
 struct MemberAccessNode; struct BasicDataNode; struct VariableNode;
 struct MultipleVariableNode; struct AndTernaryNode; struct IdentNode;
 struct OrTernaryNode; struct ArrayNode; struct ExprWithIndexNode; struct ReturnNode;
-struct IndexNode; struct TableFieldNode; struct IfNode; struct ElseIfNode;
+struct TableFieldNode; struct IfNode; struct ElseIfNode;
 struct DoNode; struct WhileNode; struct NumericForNode; struct MethodCallNode;
 struct GenericForNode; struct RepeatUntilNode; struct FunctionNode;
-struct AnonFunction; struct MethodNode; struct FunctionCallNode; 
+struct AnonFunctionNode; struct MethodNode; struct FunctionCallNode; 
 
 class DiagnosticEngine {
 private:
@@ -75,7 +75,6 @@ public:
     virtual void visit(OrTernaryNode*) = 0;
     virtual void visit(ArrayNode*) = 0;
     virtual void visit(ExprWithIndexNode*) = 0;
-    virtual void visit(IndexNode*) = 0;
     virtual void visit(TableFieldNode*) = 0;
     virtual void visit(IfNode*) = 0;
     virtual void visit(ElseIfNode*) = 0;
@@ -85,7 +84,7 @@ public:
     virtual void visit(GenericForNode*) = 0;
     virtual void visit(RepeatUntilNode*) = 0;
     virtual void visit(FunctionNode*) = 0;
-    virtual void visit(AnonFunction*) = 0;
+    virtual void visit(AnonFunctionNode*) = 0;
     virtual void visit(MethodNode*) = 0;
     virtual void visit(FunctionCallNode*) = 0;
     virtual void visit(MethodCallNode*) = 0;
@@ -134,17 +133,16 @@ public:
     void visit(FunctionNode*) override final;
     void visit(ReturnNode*) override final;
     void visit(FunctionCallNode*) override final;
+    void visit(AnonFunctionNode*) override final;
 
-    // ------------------------------------------------------
     // operation things
     void visit(BinaryOpNode*) override final;
     void visit(AndTernaryNode*) override final;
     void visit(OrTernaryNode*) override final;
     void visit(BitwiseNode*) override final;
 
+    // ------------------------------------------------------
     // unrealized ones
-    void visit(IndexNode*) override final;
-
     void visit(IfNode*) override final;
     void visit(ElseIfNode*) override final;
     void visit(DoNode*) override final;
@@ -153,7 +151,6 @@ public:
     void visit(GenericForNode*) override final;
     void visit(RepeatUntilNode*) override final;
 
-    void visit(AnonFunction*) override final;
     void visit(MethodNode*) override final;
     void visit(MethodCallNode*) override final;
 };

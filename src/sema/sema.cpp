@@ -536,9 +536,9 @@ void SemanticAnalyzer::visit(ExprWithIndexNode* eNode) {
     symb->is_used_ = true;
     eNode->index_expr->accept(*this);
 
+    std::variant<BasicDataNode*, VariableNode*> converted;
     BasicDataNode* converted_ind_bd = dynamic_cast<BasicDataNode*>(eNode->index_expr);
     VariableNode* converted_ind_var = dynamic_cast<VariableNode*>(eNode->index_expr);
-    std::variant<BasicDataNode*, VariableNode*> converted;
 
     if (converted_ind_bd) {
         converted = converted_ind_bd;
@@ -547,16 +547,15 @@ void SemanticAnalyzer::visit(ExprWithIndexNode* eNode) {
         converted = converted_ind_var;
     }
     else {
-        diags_.collect_diags(
-            "undefined index in table", name_left,
-            DiagnosticEngine::DiagType::ERROR, eNode->index_expr
-        );
+        eNode->node_data_type = Symbol::DataType::UNKNOWN;
         return;
     }
 
     std::visit(
         [&](auto* node){
-            if (node->value.type == Type::LIT_INT) {
+            if (node->value.type == Type::LIT_INT 
+                || node->value.type == Type::LIT_HEX) 
+            {
                 auto value = std::get<int>(node->value.value);
                 auto data_type = symb->element_types.value().find(value);
 
@@ -564,13 +563,17 @@ void SemanticAnalyzer::visit(ExprWithIndexNode* eNode) {
                     eNode->node_data_type = data_type->second;
                 }
                 else {
+                    eNode->node_data_type = Symbol::DataType::UNKNOWN;
                     diags_.collect_diags(
                         "undefined index in table", name_left,
                         DiagnosticEngine::DiagType::ERROR, node
                     );
                 }
             }
-            else if (node->value.type == Type::LIT_STRING || node->value.type == Type::IDENT) {
+            else if (node->value.type == Type::LIT_STRING 
+                || node->value.type == Type::LIT_CHAR 
+                || node->value.type == Type::LIT_LONG_STRING) 
+            {
                 auto value = std::get<std::string>(node->value.value);
                 auto data_type = symb->element_types.value().find(value);
 
@@ -578,11 +581,15 @@ void SemanticAnalyzer::visit(ExprWithIndexNode* eNode) {
                     eNode->node_data_type = data_type->second;
                 }
                 else {
+                    eNode->node_data_type = Symbol::DataType::UNKNOWN;
                     diags_.collect_diags(
                         "undefined index in table", name_left,
                         DiagnosticEngine::DiagType::ERROR, node
                     );
                 }
+            }
+            else if (node->value.type == Type::IDENT) {
+                eNode->node_data_type = Symbol::DataType::UNKNOWN;
             }
             else { 
                 diags_.collect_diags(
@@ -697,6 +704,9 @@ void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
     }
 
     fcNode->ret_data_types = symb->return_types_;
+}
+
+void SemanticAnalyzer::visit(AnonFunctionNode* afNode) {
 }
 
 void SemanticAnalyzer::visit(BinaryOpNode* boNode) {

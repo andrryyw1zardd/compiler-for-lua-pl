@@ -454,7 +454,7 @@ Node* Parser::parse_return() {
             std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
             expect(Type::KW_END);
 
-            return make<AnonFunction>(alloc, 1, 
+            return make<AnonFunctionNode>(alloc, 1, 
                 std::move(innerArgs), std::move(body)
             );
         }
@@ -645,7 +645,7 @@ Node* Parser::nud() {
         std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
         expect(Type::KW_END);
 
-        return make<AnonFunction>(alloc, 1, 
+        return make<AnonFunctionNode>(alloc, 1, 
             std::move(innerArgs), std::move(body)
         );
     }
@@ -744,7 +744,7 @@ Node* Parser::parse_expr(int min_lbp) {
         if (op == Type::L_BRACKET) {
             advance();
 
-            auto index_expr = parse_expr(lbp);
+            auto index_expr = parse_expr(0);
             expect(Type::R_BRACKET);
 
             left = make<ExprWithIndexNode>(alloc, 1, 

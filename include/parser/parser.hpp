@@ -226,9 +226,7 @@ struct IndexNode : Node {
         return "IndexNode";
     }
 
-    void accept(Visitor& v) override {
-        v.visit(this);
-    }
+    void accept(Visitor&) override {}
 };
 
 struct TableFieldNode : Node {
@@ -384,15 +382,15 @@ struct FunctionNode : Node {
     }
 };
 
-struct AnonFunction : Node {
+struct AnonFunctionNode : Node {
     std::vector<Node*, ArenaAllocator<Node*>> args;
     std::vector<Node*, ArenaAllocator<Node*>> body;
 
-    AnonFunction(std::vector<Node*, ArenaAllocator<Node*>> a, std::vector<Node*, ArenaAllocator<Node*>> b) 
+    AnonFunctionNode(std::vector<Node*, ArenaAllocator<Node*>> a, std::vector<Node*, ArenaAllocator<Node*>> b) 
     : args(std::move(a)), body(std::move(b)) { }
 
     std::string_view getName() const override {
-        return "AnonFunction";
+        return "AnonFunctionNode";
     }
 
     void accept(Visitor& v) override {

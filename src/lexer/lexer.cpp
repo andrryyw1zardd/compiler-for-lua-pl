@@ -1,6 +1,7 @@
 #include "lexer/lexer.hpp"
 #include <cctype>
 #include <format>
+#include <algorithm>
 
 char Lexer::peek() {
     if (index >= sourceCode.size()) return '\0';
@@ -229,13 +230,51 @@ Token Lexer::nextToken() {
 
     // checking for hex literals
     if (peek() == '0' && (peekNext() == 'x' || peekNext() == 'b' || peekNext() == 'o')) {
+        advance();
         std::string value;
+        int detect;
 
-        while (peek() != '\n' && peek() != '\0' && !isComment()) {
-            value += advance();
+        if (peek() == 'b') {
+            advance();
+            detect = 2;
+
+            if (peek() != '0' && peek() != '1') {
+                return Token{.type = Type::ERROR, .value = value, .position = {x, y}};
+            }
+
+            while (peek() == '0' || peek() == '1') {
+                value += advance();
+            }
         }
 
-        return Token{.type = Type::LIT_HEX, .value = value, .position = {x, y}};
+        else if (peek() == 'x') {
+            advance();
+            detect = 16;
+
+            std::vector<char> int_digits = {'0','1','2','3','4','5','6','7', '8', '9'};
+            std::vector<char> lower_str_digits = {'a','b','c','d','e','f'};
+            std::vector<char> upper_str_digits = {'A','B','C','D','E','F'};
+
+            while (std::ranges::find(int_digits, peek()) != int_digits.end()
+                || std::ranges::find(lower_str_digits, peek()) != lower_str_digits.end()
+                || std::ranges::find(upper_str_digits, peek()) != upper_str_digits.end()
+            ) {
+                value += advance();
+            }
+        }
+        else {
+            advance();
+            detect = 8;
+
+            std::vector<char> digits = {'0','1','2','3','4','5','6','7'};
+
+            while (std::ranges::find(digits, peek()) != digits.end()) {
+                value += advance();
+            }
+
+        }
+
+        return Token{.type = Type::LIT_HEX, .value = std::stoi(value, nullptr, detect), .position = {x, y}};
     }
 
    // checking for numeric literals (both int and float), but also numbers with exponent
@@ -277,7 +316,12 @@ Token Lexer::nextToken() {
                     continue;
                 }
 
-                return Token{.type = Type::ERROR, .position = {x, y}};
+                isFloat = seenDot || seenExp;
+                if (isFloat) { 
+                    return Token{.type = Type::LIT_FLOAT, .value = std::stof(value), .position = {x, y}};
+                } else { 
+                    return Token{.type = Type::LIT_INT, .value = std::stoi(value), .position = {x, y}};
+                }
             }
         }
 
