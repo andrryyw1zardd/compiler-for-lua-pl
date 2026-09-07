@@ -209,6 +209,7 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
 
         FunctionCallNode* converted = dynamic_cast<FunctionCallNode*>(right);
         ArrayNode* converted_arr = dynamic_cast<ArrayNode*>(right);
+        AnonFunctionNode* converted_anon_func = dynamic_cast<AnonFunctionNode*>(right);
 
         if (converted && converted->ret_data_types && !converted->ret_data_types->empty()) {
             const auto& rets = converted->ret_data_types.value();
@@ -223,8 +224,11 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
         if (converted_arr) {
             if (i < lNameVect.size()) {
                 Symbol* symb = scopes_.back()->lookup(lNameVect[i]);
+
                 if (!symb) {
-                    // diags
+                    diags_.collect_diags(
+                        "undeclerated array definition, variable", lNameVect[i], 
+                        DiagnosticEngine::DiagType::ERROR, right);
                     return;
                 }
 
@@ -232,6 +236,24 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
             }
 
             lDtVect.push_back(Symbol::DataType::TABLE);
+            continue;
+        }
+
+        if (converted_anon_func) {
+            if (i < lNameVect.size()) {
+                Symbol* symb = scopes_.back()->lookup(lNameVect[i]);
+
+                if (!symb) {
+                    diags_.collect_diags(
+                        "undeclerated function definition, variable", lNameVect[i], 
+                        DiagnosticEngine::DiagType::ERROR, right);
+                    return;
+                }
+
+                symb->return_types_ = converted_anon_func->return_types;
+            }
+
+            lDtVect.push_back(Symbol::DataType::FUNCTION);
             continue;
         }
 
@@ -289,6 +311,7 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
 
         FunctionCallNode* converted = dynamic_cast<FunctionCallNode*>(right);
         ArrayNode* converted_arr = dynamic_cast<ArrayNode*>(right);
+        AnonFunctionNode* converted_anon_func = dynamic_cast<AnonFunctionNode*>(right);
 
         if (converted && converted->ret_data_types && !converted->ret_data_types->empty()) {
             const auto& rets = converted->ret_data_types.value();
@@ -303,8 +326,11 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
         if (converted_arr) {
             if (i < lNameVect.size()) {
                 Symbol* symb = scopes_.back()->lookup(lNameVect[i]);
+
                 if (!symb) {
-                    // diags
+                    diags_.collect_diags(
+                        "undeclerated array definition, variable", lNameVect[i], 
+                        DiagnosticEngine::DiagType::ERROR, right);
                     return;
                 }
 
@@ -313,6 +339,21 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
 
             lDtVect.push_back(Symbol::DataType::TABLE);
             continue;
+        }
+
+        if (converted_anon_func) {
+            if (i < lNameVect.size()) {
+                Symbol* symb = scopes_.back()->lookup(lNameVect[i]);
+
+                if (!symb) {
+                    diags_.collect_diags(
+                        "undeclerated function definition, variable", lNameVect[i], 
+                        DiagnosticEngine::DiagType::ERROR, right);
+                    return;
+                }
+
+                symb->return_types_ = converted_anon_func->return_types;
+            }
         }
 
         if (right->node_data_type) lDtVect.push_back(*right->node_data_type);
@@ -662,6 +703,40 @@ void SemanticAnalyzer::visit(FunctionNode* fNode) {
     removeFuncScope();
 }
 
+void SemanticAnalyzer::visit(AnonFunctionNode* afNode) {
+    makeFuncScope(afNode);
+    makeScope();
+
+    for (auto& arg : afNode->args) {
+        VariableNode* converted = dynamic_cast<VariableNode*>(arg);
+
+        if (!converted) {
+            diags_.collect_diags(
+                "invalid function param in", "anonymous function",
+                DiagnosticEngine::DiagType::ERROR, afNode);
+
+            continue;
+        }
+
+        std::string vName = std::get<std::string>(converted->value.value);
+        Symbol vSymb = {
+            .kind_ = Symbol::Kind::PARAM,
+            .data_type_ = Symbol::DataType::UNKNOWN,
+            .is_used_ = false, 
+            .node_ = arg 
+        };
+
+        scopes_.back()->add_into_symbols(vName, vSymb);
+    }
+
+    for (const auto& var : afNode->body) {
+        var->accept(*this);
+    }
+
+    removeScope();
+    removeFuncScope();
+}
+
 void SemanticAnalyzer::visit(ReturnNode* rNode) {
     std::vector<Symbol::DataType> temp_vect;
 
@@ -746,9 +821,6 @@ void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
     }
 
     fcNode->ret_data_types = symb->return_types_;
-}
-
-void SemanticAnalyzer::visit(AnonFunctionNode* afNode) {
 }
 
 void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
