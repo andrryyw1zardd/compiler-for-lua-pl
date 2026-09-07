@@ -55,17 +55,32 @@ Symbol* Scope::lookup(const std::string& name) {
     return nullptr;
 }
 
-void SemanticAnalyzer::makeFuncScope(FunctionNode* fNode) {
-    std::string vName = std::get<std::string>(fNode->value.value);
-    Symbol symb = {
-        .kind_ = (fNode->isLocal) ? Symbol::Kind::LOCAL : Symbol::Kind::GLOBAL,
-        .data_type_ = Symbol::DataType::UNKNOWN,
-        .is_used_ = false, 
-        .node_ = fNode 
-    };
+void SemanticAnalyzer::makeFuncScope(Node* node) {
+    FunctionNode* fNode = dynamic_cast<FunctionNode*>(node);
+    AnonFunctionNode* afNode = dynamic_cast<AnonFunctionNode*>(node);
 
-    scopes_.back()->add_into_symbols(vName, symb);
-    func_scopes_.push_back(fNode);
+    if (fNode) {
+        std::string vName = std::get<std::string>(fNode->value.value);
+        Symbol symb = {
+            .kind_ = (fNode->isLocal) ? Symbol::Kind::LOCAL : Symbol::Kind::GLOBAL,
+            .data_type_ = Symbol::DataType::UNKNOWN,
+            .is_used_ = false, 
+            .node_ = fNode 
+        };
+
+        scopes_.back()->add_into_symbols(vName, symb);
+        func_scopes_.push_back(fNode);
+    }
+    else if (afNode) {
+        // no need to pass symbol into scopes
+        func_scopes_.push_back(afNode);
+    }
+    else {
+        diags_.collect_diags(
+            "compiler error", "could not make a function scope", 
+            DiagnosticEngine::DiagType::ERROR, node
+        );
+    }
 }
 
 void SemanticAnalyzer::removeFuncScope() {
@@ -73,7 +88,7 @@ void SemanticAnalyzer::removeFuncScope() {
     func_scopes_.pop_back();
 }
 
-FunctionNode* SemanticAnalyzer::currentFuncScope() {
+std::variant<FunctionNode*, AnonFunctionNode*> SemanticAnalyzer::currentFuncScope() {
     assert(!func_scopes_.empty());
     return func_scopes_.back();
 }
@@ -659,24 +674,51 @@ void SemanticAnalyzer::visit(ReturnNode* rNode) {
         else temp_vect.push_back(Symbol::DataType::UNKNOWN);
     }
 
-    std::string fName = std::get<std::string>(currentFuncScope()->value.value);
+    // if current function is a basic function (no matter local or global)
+    if (std::holds_alternative<FunctionNode*>(currentFuncScope())) {
+        FunctionNode* curr_func = std::get<FunctionNode*>(currentFuncScope());
+        std::string fName = std::get<std::string>(curr_func->value.value);
 
-    Symbol* symb = scopes_.back()->get_parent()->lookup(fName);
-    if (!symb) {
-        diags_.collect_diags(
-            "function symbol not found in parent scope", 
-            fName, DiagnosticEngine::DiagType::ERROR, rNode);
-        return;
+        Symbol* symb = scopes_.back()->get_parent()->lookup(fName);
+        if (!symb) {
+            diags_.collect_diags(
+                "function symbol not found in parent scope", 
+                fName, DiagnosticEngine::DiagType::ERROR, rNode);
+            return;
+        }
+
+        if (!symb->return_types_) {
+            symb->return_types_ = temp_vect;
+        } else {
+            if (*symb->return_types_ != temp_vect) {
+                diags_.collect_diags(
+                    "inconsistent/invalid return types in function", 
+                    fName, DiagnosticEngine::DiagType::ERROR, rNode);
+            }
+        }
     }
 
-    if (!symb->return_types_) {
-        symb->return_types_ = temp_vect;
-    } else {
-        if (*symb->return_types_ != temp_vect) {
-            diags_.collect_diags(
-                "inconsistent/invalid return types in function", 
-                fName, DiagnosticEngine::DiagType::ERROR, rNode);
+    // else current is a anonymous function
+    else if (std::holds_alternative<AnonFunctionNode*>(currentFuncScope())) {
+        AnonFunctionNode* curr_func = std::get<AnonFunctionNode*>(currentFuncScope());
+
+        curr_func->return_types = temp_vect;
+
+        if (!curr_func->return_types) {
+            curr_func->return_types = temp_vect;
+        } else {
+            if (*curr_func->return_types != temp_vect) {
+                diags_.collect_diags(
+                    "inconsistent/invalid return types in", 
+                    "anonymous function", DiagnosticEngine::DiagType::ERROR, rNode);
+            }
         }
+    }
+
+    else {
+        diags_.collect_diags(
+            "compiler error", "failed to pass return arguments to function",
+            DiagnosticEngine::DiagType::ERROR, rNode);
     }
 }
 
@@ -728,8 +770,7 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
         case Type::NOT_EQUAL:
             boNode->node_data_type = Symbol::DataType::BOOL;
             break;
-
-        case Type::GREATER:
+case Type::GREATER:
         case Type::GREATER_EQUAL:
         case Type::LESS:
         case Type::LESS_EQUAL:

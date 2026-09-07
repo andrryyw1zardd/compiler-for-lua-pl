@@ -94,7 +94,7 @@ public:
 class SemanticAnalyzer : public Visitor {
 private:
     std::vector<std::unique_ptr<Scope>> scopes_;
-    std::vector<FunctionNode*> func_scopes_;
+    std::vector<std::variant<FunctionNode*, AnonFunctionNode*>> func_scopes_;
     DiagnosticEngine& diags_;
 
 public:
@@ -112,9 +112,9 @@ public:
     void removeScope();
     Scope* currentScope();
 
-    void makeFuncScope(FunctionNode*);
+    void makeFuncScope(Node*);
     void removeFuncScope();
-    FunctionNode* currentFuncScope();
+    std::variant<FunctionNode*, AnonFunctionNode*> currentFuncScope();
 
     // variable things 
     void visit(VariableNode*) override final;

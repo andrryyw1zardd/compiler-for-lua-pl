@@ -385,6 +385,7 @@ struct FunctionNode : Node {
 struct AnonFunctionNode : Node {
     std::vector<Node*, ArenaAllocator<Node*>> args;
     std::vector<Node*, ArenaAllocator<Node*>> body;
+    std::optional<std::vector<Symbol::DataType>> return_types = std::nullopt;
 
     AnonFunctionNode(std::vector<Node*, ArenaAllocator<Node*>> a, std::vector<Node*, ArenaAllocator<Node*>> b) 
     : args(std::move(a)), body(std::move(b)) { }
