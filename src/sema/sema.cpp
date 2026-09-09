@@ -58,6 +58,7 @@ Symbol* Scope::lookup(const std::string& name) {
 void SemanticAnalyzer::makeFuncScope(Node* node) {
     FunctionNode* fNode = dynamic_cast<FunctionNode*>(node);
     AnonFunctionNode* afNode = dynamic_cast<AnonFunctionNode*>(node);
+    MethodNode* mNode = dynamic_cast<MethodNode*>(node);
 
     if (fNode) {
         std::string vName = std::get<std::string>(fNode->value.value);
@@ -70,6 +71,18 @@ void SemanticAnalyzer::makeFuncScope(Node* node) {
 
         scopes_.back()->add_into_symbols(vName, symb);
         func_scopes_.push_back(fNode);
+    }
+    else if (mNode) {
+        std::string vName = std::get<std::string>(mNode->value.value);
+        Symbol symb = {
+            .kind_ = (mNode->isLocal) ? Symbol::Kind::LOCAL : Symbol::Kind::GLOBAL,
+            .data_type_ = Symbol::DataType::UNKNOWN,
+            .is_used_ = false, 
+            .node_ = mNode 
+        };
+
+        scopes_.back()->add_into_symbols(vName, symb);
+        func_scopes_.push_back(mNode);
     }
     else if (afNode) {
         // no need to pass symbol into scopes
@@ -88,7 +101,7 @@ void SemanticAnalyzer::removeFuncScope() {
     func_scopes_.pop_back();
 }
 
-std::variant<FunctionNode*, AnonFunctionNode*> SemanticAnalyzer::currentFuncScope() {
+std::variant<FunctionNode*, AnonFunctionNode*, MethodNode*> SemanticAnalyzer::currentFuncScope() {
     assert(!func_scopes_.empty());
     return func_scopes_.back();
 }
@@ -208,8 +221,8 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
         right->accept(*this);
 
         FunctionCallNode* converted = dynamic_cast<FunctionCallNode*>(right);
-        ArrayNode* converted_arr = dynamic_cast<ArrayNode*>(right);
         AnonFunctionNode* converted_anon_func = dynamic_cast<AnonFunctionNode*>(right);
+        ArrayNode* converted_arr = dynamic_cast<ArrayNode*>(right);
 
         if (converted && converted->ret_data_types && !converted->ret_data_types->empty()) {
             const auto& rets = converted->ret_data_types.value();
@@ -703,6 +716,60 @@ void SemanticAnalyzer::visit(FunctionNode* fNode) {
     removeFuncScope();
 }
 
+void SemanticAnalyzer::visit(MethodNode* mNode) {
+    std::string class_name = std::get<std::string>(mNode->className.value);
+    Symbol* class_symb = scopes_.back()->lookup(class_name);
+
+    if (!class_symb) {
+        diags_.collect_diags(
+            "undefined method parent", class_name,
+            DiagnosticEngine::DiagType::ERROR, mNode);
+        return;
+    }
+
+    std::string meth_name = std::get<std::string>(mNode->value.value);
+    Symbol meth_symb = {
+        .kind_ = (mNode->isLocal) ? Symbol::Kind::LOCAL : Symbol::Kind::GLOBAL,
+        .data_type_ = Symbol::DataType::UNKNOWN,
+        .is_used_ = false, 
+        .node_ = mNode 
+    };
+
+    class_symb->method_map.value()[meth_name] = &meth_symb;
+
+    makeFuncScope(mNode);
+    makeScope();
+
+    for (auto& arg : mNode->args) {
+        VariableNode* converted = dynamic_cast<VariableNode*>(arg);
+
+        if (!converted) {
+            diags_.collect_diags(
+                "invalid function param in function", meth_name,
+                DiagnosticEngine::DiagType::ERROR, mNode);
+
+            continue;
+        }
+
+        std::string vName = std::get<std::string>(converted->value.value);
+        Symbol vSymb = {
+            .kind_ = Symbol::Kind::PARAM,
+            .data_type_ = Symbol::DataType::UNKNOWN,
+            .is_used_ = false, 
+            .node_ = arg 
+        };
+
+        scopes_.back()->add_into_symbols(vName, vSymb);
+    }
+
+    for (const auto& var : mNode->body) {
+        var->accept(*this);
+    }
+
+    removeScope();
+    removeFuncScope();
+}
+
 void SemanticAnalyzer::visit(AnonFunctionNode* afNode) {
     makeFuncScope(afNode);
     makeScope();
@@ -735,6 +802,32 @@ void SemanticAnalyzer::visit(AnonFunctionNode* afNode) {
 
     removeScope();
     removeFuncScope();
+}
+
+void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
+    for (const auto& arg: fcNode->args) {
+        arg->accept(*this);
+    }
+
+    VariableNode* converted = dynamic_cast<VariableNode*>(fcNode->callee);
+    if (!converted) {
+        diags_.collect_diags(
+            "invalid function call", std::string(fcNode->getName()),
+            DiagnosticEngine::DiagType::ERROR, fcNode);
+        return;
+    }
+
+    std::string fcName = std::get<std::string>(converted->value.value);
+
+    auto symb = scopes_.back()->lookup(fcName);
+    if (!symb) {
+        diags_.collect_diags(
+            "compiler: cant find function call name in symbol table", fcName,
+            DiagnosticEngine::DiagType::ERROR, fcNode);
+        return;
+    }
+
+    fcNode->ret_data_types = symb->return_types_;
 }
 
 void SemanticAnalyzer::visit(ReturnNode* rNode) {
@@ -773,7 +866,7 @@ void SemanticAnalyzer::visit(ReturnNode* rNode) {
         }
     }
 
-    // else current is a anonymous function
+    // or the current is a anonymous function
     else if (std::holds_alternative<AnonFunctionNode*>(currentFuncScope())) {
         AnonFunctionNode* curr_func = std::get<AnonFunctionNode*>(currentFuncScope());
 
@@ -790,37 +883,35 @@ void SemanticAnalyzer::visit(ReturnNode* rNode) {
         }
     }
 
+    // MethodNode
+    else if (std::holds_alternative<MethodNode*>(currentFuncScope())) {
+        MethodNode* curr_func = std::get<MethodNode*>(currentFuncScope());
+        std::string fName = std::get<std::string>(curr_func->value.value);
+
+        Symbol* symb = scopes_.back()->get_parent()->lookup(fName);
+        if (!symb) {
+            diags_.collect_diags(
+                "function symbol not found in parent scope", 
+                fName, DiagnosticEngine::DiagType::ERROR, rNode);
+            return;
+        }
+
+        if (!symb->return_types_) {
+            symb->return_types_ = temp_vect;
+        } else {
+            if (*symb->return_types_ != temp_vect) {
+                diags_.collect_diags(
+                    "inconsistent/invalid return types in function", 
+                    fName, DiagnosticEngine::DiagType::ERROR, rNode);
+            }
+        }
+    }
+
     else {
         diags_.collect_diags(
             "compiler error", "failed to pass return arguments to function",
             DiagnosticEngine::DiagType::ERROR, rNode);
     }
-}
-
-void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
-    for (const auto& arg: fcNode->args) {
-        arg->accept(*this);
-    }
-
-    VariableNode* converted = dynamic_cast<VariableNode*>(fcNode->callee);
-    if (!converted) {
-        diags_.collect_diags(
-            "invalid function call", std::string(fcNode->getName()),
-            DiagnosticEngine::DiagType::ERROR, fcNode);
-        return;
-    }
-
-    std::string fcName = std::get<std::string>(converted->value.value);
-
-    auto symb = scopes_.back()->lookup(fcName);
-    if (!symb) {
-        diags_.collect_diags(
-            "compiler: cant find function call name in symbol table", fcName,
-            DiagnosticEngine::DiagType::ERROR, fcNode);
-        return;
-    }
-
-    fcNode->ret_data_types = symb->return_types_;
 }
 
 void SemanticAnalyzer::visit(BinaryOpNode* boNode) {

@@ -40,6 +40,10 @@ struct Symbol {
 
     std::optional<bool> have_const_attr = false;
     std::optional<std::unordered_map<std::variant<std::string, int>, Symbol::DataType>> element_types = std::nullopt;
+
+    // for variables with methods
+    std::optional<std::unordered_map<std::string, Symbol*>> method_map = std::nullopt;
+
     bool is_used_ = false;
     Node* node_ = nullptr;
 };
@@ -94,7 +98,7 @@ public:
 class SemanticAnalyzer : public Visitor {
 private:
     std::vector<std::unique_ptr<Scope>> scopes_;
-    std::vector<std::variant<FunctionNode*, AnonFunctionNode*>> func_scopes_;
+    std::vector<std::variant<FunctionNode*, AnonFunctionNode*, MethodNode*>> func_scopes_;
     DiagnosticEngine& diags_;
 
 public:
@@ -114,7 +118,7 @@ public:
 
     void makeFuncScope(Node*);
     void removeFuncScope();
-    std::variant<FunctionNode*, AnonFunctionNode*> currentFuncScope();
+    std::variant<FunctionNode*, AnonFunctionNode*, MethodNode*> currentFuncScope();
 
     // variable things 
     void visit(VariableNode*) override final;
@@ -131,9 +135,10 @@ public:
 
     // function things  
     void visit(FunctionNode*) override final;
+    void visit(MethodNode*) override final;
     void visit(AnonFunctionNode*) override final;
-    void visit(ReturnNode*) override final;
     void visit(FunctionCallNode*) override final;
+    void visit(ReturnNode*) override final;
 
     // operation things
     void visit(BinaryOpNode*) override final;
@@ -151,7 +156,6 @@ public:
     void visit(GenericForNode*) override final;
     void visit(RepeatUntilNode*) override final;
 
-    void visit(MethodNode*) override final;
     void visit(MethodCallNode*) override final;
 };
 
