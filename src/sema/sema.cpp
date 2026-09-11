@@ -477,26 +477,36 @@ void SemanticAnalyzer::visit(UnaryOpNode* uoNode) {
 void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
     maNode->value->accept(*this);
 
-    std::string maName = std::get<std::string>(maNode->qualifier.value);
-    Symbol* symb = scopes_.back()->lookup(maName);
+    std::vector<std::string> qualifiers;
+    Node* current = maNode;
 
-    if (!symb) {
-        diags_.collect_diags(
-            "undeclerated qualifier", maName,
-            DiagnosticEngine::DiagType::ERROR, maNode);
-        return;
+    while (auto converted = dynamic_cast<MemberAccessNode*>(current)) {
+        qualifiers.push_back(std::get<std::string>(converted->qualifier.value));
+        current = converted->value;
     }
 
-    maNode->node_data_type = maNode->value->node_data_type;
-
-    if (maNode->node_data_type == Symbol::DataType::UNKNOWN) {
+    auto base = dynamic_cast<VariableNode*>(current);
+    if (!base) {
         diags_.collect_diags(
-            "unknown data type of", maName,
+            "member access on non-indentifier expression", std::string(current->getName()),
             DiagnosticEngine::DiagType::ERROR, maNode);
-        return;
+    }
+
+    std::string base_name = std::get<std::string>(base->value.value);
+
+    Symbol* symb = scopes_.back()->lookup(base_name);
+    if (!symb) {
+        diags_.collect_diags(
+            "undefined qualifier", base_name,
+            DiagnosticEngine::DiagType::ERROR, maNode);
     }
 
     symb->is_used_ = true;
+    symb->data_type_ = *base->node_data_type;
+
+    for (const auto& q: qualifiers) {
+        symb->method_map.value().push_back(q);
+    }
 }
 
 void SemanticAnalyzer::visit(ArrayNode* aNode) {
@@ -735,7 +745,7 @@ void SemanticAnalyzer::visit(MethodNode* mNode) {
         .node_ = mNode 
     };
 
-    class_symb->method_map.value()[meth_name] = &meth_symb;
+    class_symb->method_map->push_back(meth_name);
 
     makeFuncScope(mNode);
     makeScope();
@@ -828,6 +838,20 @@ void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
     }
 
     fcNode->ret_data_types = symb->return_types_;
+}
+
+// Object1.Arg1.foo()
+// ^^^^^^^^^^  ^^^^^
+//  object     method
+void SemanticAnalyzer::visit(MethodCallNode* mcNode) {
+    mcNode->object_name->accept(*this);
+
+    // MemberAccessNode is broken cuz the qualifier is always variable
+    // and in this case, the logic is broken
+
+    for (const auto& arg: mcNode->args) {
+        arg->accept(*this);
+    }
 }
 
 void SemanticAnalyzer::visit(ReturnNode* rNode) {

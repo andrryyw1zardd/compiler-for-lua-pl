@@ -41,8 +41,9 @@ struct Symbol {
     std::optional<bool> have_const_attr = false;
     std::optional<std::unordered_map<std::variant<std::string, int>, Symbol::DataType>> element_types = std::nullopt;
 
-    // for variables with methods
-    std::optional<std::unordered_map<std::string, Symbol*>> method_map = std::nullopt;
+    // for objects with variables or/and with methods
+    std::optional<std::vector<std::string>> variable_map = std::nullopt;
+    std::optional<std::vector<std::string>> method_map = std::nullopt;
 
     bool is_used_ = false;
     Node* node_ = nullptr;
@@ -138,6 +139,7 @@ public:
     void visit(MethodNode*) override final;
     void visit(AnonFunctionNode*) override final;
     void visit(FunctionCallNode*) override final;
+    void visit(MethodCallNode*) override final;
     void visit(ReturnNode*) override final;
 
     // operation things
@@ -155,8 +157,6 @@ public:
     void visit(NumericForNode*) override final;
     void visit(GenericForNode*) override final;
     void visit(RepeatUntilNode*) override final;
-
-    void visit(MethodCallNode*) override final;
 };
 
 #endif
