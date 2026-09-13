@@ -274,7 +274,7 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
         else lDtVect.push_back(Symbol::DataType::UNKNOWN);
     }
 
-    // finally this loop connects left and right sides
+    // finally, this loop connects left and right sides
     for (size_t i = 0; i < lNameVect.size(); ++i) {
         auto lSymb = scopes_.back()->lookup(lNameVect[i]);
 
@@ -477,6 +477,18 @@ void SemanticAnalyzer::visit(UnaryOpNode* uoNode) {
 void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
     maNode->value->accept(*this);
 
+    if (!maNode->value->node_data_type) {
+        maNode->node_data_type = Symbol::DataType::UNKNOWN;
+        return;
+    }
+
+    if (*maNode->value->node_data_type != Symbol::DataType::TABLE) {
+        // diags
+
+        *maNode->node_data_type = Symbol::DataType::UNKNOWN;
+        return;
+    }
+
     std::vector<std::string> qualifiers;
     Node* current = maNode;
 
@@ -490,6 +502,7 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
         diags_.collect_diags(
             "member access on non-indentifier expression", std::string(current->getName()),
             DiagnosticEngine::DiagType::ERROR, maNode);
+        return;
     }
 
     std::string base_name = std::get<std::string>(base->value.value);
@@ -499,14 +512,24 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
         diags_.collect_diags(
             "undefined qualifier", base_name,
             DiagnosticEngine::DiagType::ERROR, maNode);
+        return;
     }
 
     symb->is_used_ = true;
-    symb->data_type_ = *base->node_data_type;
+    symb->data_type_ = base->node_data_type.value();
 
-    for (const auto& q: qualifiers) {
-        symb->method_map.value().push_back(q);
+    for (const auto& q: qualifiers) { 
+        auto qual = symb->element_types.value().find(q);
+
+        if (qual == symb->element_types->end()) {
+            diags_.collect_diags(
+                "undefined qualifier", std::get<std::string>(qual->first),
+                DiagnosticEngine::DiagType::ERROR, maNode);
+            return;
+        }
     }
+
+    maNode->node_data_type = symb->element_types.value()[qualifiers[0]];
 }
 
 void SemanticAnalyzer::visit(ArrayNode* aNode) {
@@ -1157,4 +1180,11 @@ void SemanticAnalyzer::visit(BitwiseNode* bNode) {
                 DiagnosticEngine::DiagType::ERROR, bNode);
             break;
     }
+}
+
+void SemanticAnalyzer::visit(IfNode* iNode) {
+    iNode->condition->accept(*this);
+    for (const auto& iter: iNode->elseifs) { iter->accept(*this); }
+    for (const auto& iter: iNode->elseBody) { iter->accept(*this); }
+    for (const auto& iter: iNode->body) { iter->accept(*this); }
 }

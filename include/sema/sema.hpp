@@ -148,9 +148,11 @@ public:
     void visit(OrTernaryNode*) override final;
     void visit(BitwiseNode*) override final;
 
+    // statement things
+    void visit(IfNode*) override final;
+
     // ------------------------------------------------------
     // unrealized ones
-    void visit(IfNode*) override final;
     void visit(ElseIfNode*) override final;
     void visit(DoNode*) override final;
     void visit(WhileNode*) override final;

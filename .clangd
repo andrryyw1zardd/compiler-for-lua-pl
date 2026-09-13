@@ -1,3 +1,5 @@
 CompileFlags:
-    Compiler: C:/msys64/ucrt64/bin/g++.exe
-    CompilationDatabase: ./build
+  Compiler: g++
+  CompilationDatabase: build
+  Add:
+    - -std=c++23
