@@ -1188,3 +1188,38 @@ void SemanticAnalyzer::visit(IfNode* iNode) {
     for (const auto& iter: iNode->elseBody) { iter->accept(*this); }
     for (const auto& iter: iNode->body) { iter->accept(*this); }
 }
+
+void SemanticAnalyzer::visit(ElseIfNode* eiNode) { 
+    eiNode->condition->accept(*this);
+    for (const auto& iter: eiNode->body) { iter->accept(*this); }
+}
+
+void SemanticAnalyzer::visit(DoNode* dNode) {
+    for (const auto& iter: dNode->body) { iter->accept(*this); }
+}
+
+void SemanticAnalyzer::visit(WhileNode* wNode) {
+    wNode->condition->accept(*this);
+    for (const auto& iter: wNode->body) { iter->accept(*this); }
+}
+
+void SemanticAnalyzer::visit(RepeatUntilNode* ruNode) {
+    ruNode->condition->accept(*this);
+    for (const auto& iter: ruNode->body) { iter->accept(*this); }
+}
+
+void SemanticAnalyzer::visit(NumericForNode* nfNode) { 
+    nfNode->start->accept(*this);
+    nfNode->finish->accept(*this);
+
+    for (const auto& iter: nfNode->body) { iter->accept(*this); }
+
+    if (nfNode->finish->node_data_type != Symbol::DataType::BOOL) {
+        diags_.collect_diags(
+                "invalid for statement", 
+                "finish block (the one between first and second ;) should be boolean",
+                DiagnosticEngine::DiagType::ERROR, nfNode);
+    }
+}
+
+void SemanticAnalyzer::visit([[maybe_unused]]GenericForNode* gfNode) { }

@@ -150,15 +150,14 @@ public:
 
     // statement things
     void visit(IfNode*) override final;
-
-    // ------------------------------------------------------
-    // unrealized ones
     void visit(ElseIfNode*) override final;
     void visit(DoNode*) override final;
     void visit(WhileNode*) override final;
+    void visit(RepeatUntilNode*) override final;
+
+    // didnt do anything
     void visit(NumericForNode*) override final;
     void visit(GenericForNode*) override final;
-    void visit(RepeatUntilNode*) override final;
 };
 
 #endif
