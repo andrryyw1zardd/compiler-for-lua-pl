@@ -209,7 +209,7 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
             .node_ = left 
         };
 
-        if (mvNode->const_vect[i]) vSymb.have_const_attr = true;
+        if (i < mvNode->const_vect.size() && mvNode->const_vect[i]) vSymb.have_const_attr = true;
         else vSymb.have_const_attr = false;
 
         scopes_.back()->add_into_symbols(lName, vSymb);
@@ -483,13 +483,15 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
     }
 
     if (*maNode->value->node_data_type != Symbol::DataType::TABLE) {
-        // diags
+        diags_.collect_diags(
+                "invalid data type when", std::string(maNode->getName()),
+                DiagnosticEngine::DiagType::ERROR, maNode);
 
         *maNode->node_data_type = Symbol::DataType::UNKNOWN;
         return;
     }
 
-    std::vector<std::string> qualifiers;
+    std::vector<std::string> qualifiers {};
     Node* current = maNode;
 
     while (auto converted = dynamic_cast<MemberAccessNode*>(current)) {
@@ -523,7 +525,7 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
 
         if (qual == symb->element_types->end()) {
             diags_.collect_diags(
-                "undefined qualifier", std::get<std::string>(qual->first),
+                "undefined qualifier", q,
                 DiagnosticEngine::DiagType::ERROR, maNode);
             return;
         }
@@ -1222,4 +1224,8 @@ void SemanticAnalyzer::visit(NumericForNode* nfNode) {
     }
 }
 
-void SemanticAnalyzer::visit([[maybe_unused]]GenericForNode* gfNode) { }
+void SemanticAnalyzer::visit(GenericForNode* gfNode) { 
+    gfNode->fn->accept(*this);
+    for (const auto& iter: gfNode->body) { iter->accept(*this); }
+    for (const auto& iter: gfNode->keyArgs) { iter->accept(*this); }
+}
