@@ -252,8 +252,8 @@ Token Lexer::nextToken() {
             detect = 16;
 
             std::vector<char> int_digits = {'0','1','2','3','4','5','6','7', '8', '9'};
-            std::vector<char> lower_str_digits = {'a','b','c','d','e','f'};
-            std::vector<char> upper_str_digits = {'A','B','C','D','E','F'};
+            std::vector<char> lower_str_digits = {'a','b','c','d','e','f', 'p'};
+            std::vector<char> upper_str_digits = {'A','B','C','D','E','F', 'P'};
 
             while (std::ranges::find(int_digits, peek()) != int_digits.end()
                 || std::ranges::find(lower_str_digits, peek()) != lower_str_digits.end()

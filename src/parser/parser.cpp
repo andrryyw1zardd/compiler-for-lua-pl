@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <iostream>
 
-Arena arena{1024 * 1024};
+Arena arena{1024 * 1024 * 10};
 ArenaAllocator<Node*> alloc(arena);
 ArenaAllocator<Type> alloc_for_type(arena);
 ArenaAllocator<bool> alloc_for_bool(arena);
@@ -102,6 +102,7 @@ bool Parser::endblock() {
 
 Node* Parser::parse_ident() {
     std::vector<Node*, ArenaAllocator<Node*>> left_side(alloc);
+    Vect2 position = peek().position;
 
     Node* left = parse_expr(0);
     left_side.push_back(left);
@@ -125,7 +126,7 @@ Node* Parser::parse_ident() {
             right_side.push_back(parse_expr(0));
         }
 
-        return make<IdentNode>(alloc, 1, Type::EQUAL, std::move(left_side), std::move(right_side)); 
+        return make<IdentNode>(alloc, 1, position, Type::EQUAL, std::move(left_side), std::move(right_side)); 
     }
 
     if (left_side.size() == 1 && 
@@ -138,6 +139,7 @@ Node* Parser::parse_ident() {
 }
 
 Node* Parser::parse_local() {
+    Vect2 position = peek().position;
     advance();
 
     [[maybe_unused]] 
@@ -208,7 +210,7 @@ Node* Parser::parse_local() {
     }
 
     return make<MultipleVariableNode>(
-        alloc, 1,
+        alloc, 1, position,
         std::move(const_vect),
         std::move(left_side),
         std::move(right_side)
@@ -216,15 +218,17 @@ Node* Parser::parse_local() {
 }
 
 Node* Parser::parse_do() {
+    Vect2 position = peek().position;
     advance();
 
     std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
     expect(Type::KW_END);
 
-    return make<DoNode>(alloc, 1, std::move(body));
+    return make<DoNode>(alloc, 1, position, std::move(body));
 }
 
 Node* Parser::parse_while() {
+    Vect2 position = peek().position;
     advance();
 
     Node* condition = parse_expr(0); 
@@ -235,13 +239,14 @@ Node* Parser::parse_while() {
     std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
     expect(Type::KW_END);
 
-    return make<WhileNode>(alloc, 1, 
-        condition,
-        std::move(body) 
+    return make<WhileNode>(
+            alloc, 1, position,
+            condition, std::move(body) 
     );
 }
 
 Node* Parser::parse_for() {
+    Vect2 position = peek().position;
     advance();
 
     Node* start;
@@ -255,11 +260,11 @@ Node* Parser::parse_for() {
 
     if (check(Type::COMMA) || check(Type::KW_IN)) {
         std::vector<Node*, ArenaAllocator<Node*>> keyArgs(alloc);
-        keyArgs.push_back(make<VariableNode>(alloc, 1, var));
+        keyArgs.push_back(make<VariableNode>(alloc, 1, peek().position, var));
 
         while (check(Type::COMMA)) {
             advance();
-            keyArgs.push_back(make<VariableNode>(alloc, 1, advance()));
+            keyArgs.push_back(make<VariableNode>(alloc, 1, peek().position, advance()));
         }
 
         expect(Type::KW_IN);
@@ -272,7 +277,7 @@ Node* Parser::parse_for() {
         std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
         expect(Type::KW_END);
 
-        return make<GenericForNode>(alloc, 1, 
+        return make<GenericForNode>(alloc, 1, position,
             std::move(keyArgs), iter_fn, std::move(body)
         );
     }
@@ -294,13 +299,14 @@ Node* Parser::parse_for() {
     std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
     expect(Type::KW_END);
 
-    return make<NumericForNode>(alloc, 1, 
+    return make<NumericForNode>(alloc, 1, position,
         std::move(var), start,
         finish, step, std::move(body) 
     );
 }
 
 Node* Parser::parse_if() {
+    Vect2 position = peek().position;
     advance();
 
     Node* condition = parse_expr(0); 
@@ -324,7 +330,8 @@ Node* Parser::parse_if() {
 
     expect(Type::KW_END);
 
-    return make<IfNode>(alloc, 1, 
+    return make<IfNode>(alloc, 1,
+        position,
         condition,
         std::move(body), 
         std::move(elseifs),
@@ -333,6 +340,7 @@ Node* Parser::parse_if() {
 }
 
 Node* Parser::parse_elseif() {
+    Vect2 position = peek().position;
     advance();
 
     Node* condition = parse_expr(0);
@@ -342,13 +350,16 @@ Node* Parser::parse_elseif() {
     std::vector<Node*, ArenaAllocator<Node*>> body = parse_block(); 
 
     return make<ElseIfNode>(alloc, 1, 
+        position,
         condition,
         std::move(body)
     );
 }
 
 Node* Parser::parse_repeat() {
+    Vect2 position = peek().position;
     advance();
+
     std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
 
     expect(Type::KW_UNTIL);
@@ -356,12 +367,14 @@ Node* Parser::parse_repeat() {
     Node* condition = parse_expr(0);
 
     return make<RepeatUntilNode>(alloc, 1, 
+        position,
         condition,
         std::move(body)
     );
 }
 
 Node* Parser::parse_function(bool isLocal) {
+    Vect2 position = peek().position;
     advance();
     
     if (!check(Type::IDENT)) {
@@ -394,6 +407,7 @@ Node* Parser::parse_function(bool isLocal) {
     expect(Type::KW_END);
 
     return make<FunctionNode>(alloc, 1, 
+        position,
         std::move(funcName),
         isLocal,
         std::move(Args),
@@ -402,6 +416,7 @@ Node* Parser::parse_function(bool isLocal) {
 }
 
 Node* Parser::parse_method(Token className, bool isLocal) {
+    Vect2 position = peek().position;
     Token methodName = advance();
     std::vector<Node*, ArenaAllocator<Node*>> args(alloc);
 
@@ -423,6 +438,7 @@ Node* Parser::parse_method(Token className, bool isLocal) {
     expect(Type::KW_END);
 
     return make<MethodNode>(alloc, 1, 
+        position,
         std::move(methodName),
         std::move(className),
         isLocal,
@@ -432,6 +448,7 @@ Node* Parser::parse_method(Token className, bool isLocal) {
 }
 
 Node* Parser::parse_return() {
+    Vect2 position = peek().position;
     advance();
     std::vector<Node*, ArenaAllocator<Node*>> args(alloc);
 
@@ -454,7 +471,7 @@ Node* Parser::parse_return() {
             std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
             expect(Type::KW_END);
 
-            return make<AnonFunctionNode>(alloc, 1, 
+            return make<AnonFunctionNode>(alloc, 1, position,
                 std::move(innerArgs), std::move(body)
             );
         }
@@ -465,7 +482,7 @@ Node* Parser::parse_return() {
         else break;
     }
 
-    return make<ReturnNode>(alloc, 1, std::move(args));
+    return make<ReturnNode>(alloc, 1, position, std::move(args));
 }
 
 std::vector<Node*, ArenaAllocator<Node*>> Parser::parse_block() {
@@ -551,6 +568,8 @@ int Parser::get_lbp() {
 }
 
 Node* Parser::nud() {
+    Vect2 position = peek().position;
+
     if (check(Type::LIT_INT) || check(Type::LIT_FLOAT) || check(Type::LIT_STRING)
         || check(Type::KW_TRUE) || check(Type::KW_FALSE) || check(Type::LIT_LONG_STRING)
         || check(Type::LIT_HEX) || check(Type::LIT_CHAR) || check(Type::ELLIPSIS) 
@@ -559,14 +578,14 @@ Node* Parser::nud() {
         Token value = peek();
         advance();
 
-        return make<BasicDataNode>(alloc, 1, std::move(value));
+        return make<BasicDataNode>(alloc, 1, position, std::move(value));
     }
     else if (std::ranges::find(UnaryOpSet, peek().type) != UnaryOpSet.end()) {
         Token op = advance();
 
         auto val = parse_expr(90);
 
-        return make<UnaryOpNode>(alloc, 1, std::move(op), val);
+        return make<UnaryOpNode>(alloc, 1, position, std::move(op), val);
     }
     else if (check(Type::L_PAREN)) {
         advance();
@@ -585,7 +604,7 @@ Node* Parser::nud() {
                 advance();
 
                 auto index_expr = parse_expr(0);
-                auto index = make<IndexNode>(alloc, 1, index_expr);
+                auto index = make<IndexNode>(alloc, 1, peek().position, index_expr);
 
                 expect(Type::R_BRACKET);
 
@@ -595,7 +614,7 @@ Node* Parser::nud() {
                     auto value = parse_expr(0);
 
                     elements.push_back(make<TableFieldNode>(alloc, 1, 
-                        index, value));
+                        peek().position, index, value));
                 }
                 else elements.push_back(index);
             }
@@ -607,7 +626,7 @@ Node* Parser::nud() {
                     auto value = parse_expr(0);
 
                     elements.push_back(make<TableFieldNode>(alloc, 1, 
-                        key, value));
+                        peek().position, key, value));
                 }
                 else elements.push_back(key);
             }
@@ -616,13 +635,13 @@ Node* Parser::nud() {
         } 
         expect(Type::R_BRACE);
 
-        return make<ArrayNode>(alloc, 1, std::move(elements));
+        return make<ArrayNode>(alloc, 1, position, std::move(elements));
     }
     else if (check(Type::IDENT)) {
         Token value = peek();
         advance();
 
-        return make<VariableNode>(alloc, 1, std::move(value));
+        return make<VariableNode>(alloc, 1, position, std::move(value));
     }
     else if (check(Type::KW_FUNCTION)) {
         advance();
@@ -645,7 +664,7 @@ Node* Parser::nud() {
         std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
         expect(Type::KW_END);
 
-        return make<AnonFunctionNode>(alloc, 1, 
+        return make<AnonFunctionNode>(alloc, 1, position,
             std::move(innerArgs), std::move(body)
         );
     }
@@ -655,6 +674,7 @@ Node* Parser::nud() {
 }
 
 Node* Parser::parse_expr(int min_lbp) {
+    Vect2 position = peek().position;
     Node* left = nud(); 
     
     while (true) {
@@ -667,7 +687,7 @@ Node* Parser::parse_expr(int min_lbp) {
             advance(); advance();
 
             Node* right = parse_expr(lbp - 1); 
-            left = make<BinaryOpNode>(alloc, 1, 
+            left = make<BinaryOpNode>(alloc, 1, position,
                 op,
                 left,
                 right
@@ -681,7 +701,7 @@ Node* Parser::parse_expr(int min_lbp) {
 
             Node* right = parse_expr(lbp - 1); 
 
-            left = make<BinaryOpNode>(alloc, 1, 
+            left = make<BinaryOpNode>(alloc, 1, position,
                 op,
                 left,
                 right
@@ -695,7 +715,7 @@ Node* Parser::parse_expr(int min_lbp) {
             if (!check(Type::IDENT)) throwError(Type::IDENT);
             Token q = advance();
 
-            left = make<MemberAccessNode>(alloc, 1, left, std::move(q));
+            left = make<MemberAccessNode>(alloc, 1, position, left, std::move(q));
             continue;
         }
 
@@ -712,7 +732,7 @@ Node* Parser::parse_expr(int min_lbp) {
 
             expect(Type::R_PAREN); 
 
-            left = make<FunctionCallNode>(alloc, 1, 
+            left = make<FunctionCallNode>(alloc, 1, position,
                 left,
                 std::move(args)
             );
@@ -733,7 +753,7 @@ Node* Parser::parse_expr(int min_lbp) {
 
             expect(Type::R_PAREN); 
 
-            left = make<MethodCallNode>(alloc, 1, 
+            left = make<MethodCallNode>(alloc, 1, position,
                 std::move(method_name), 
                 left,
                 std::move(args)
@@ -747,7 +767,7 @@ Node* Parser::parse_expr(int min_lbp) {
             auto index_expr = parse_expr(0);
             expect(Type::R_BRACKET);
 
-            left = make<ExprWithIndexNode>(alloc, 1, 
+            left = make<ExprWithIndexNode>(alloc, 1, position,
                 left,
                 index_expr
             );
@@ -758,7 +778,7 @@ Node* Parser::parse_expr(int min_lbp) {
             advance();
             auto right = parse_expr(lbp);
 
-            left = make<AndTernaryNode>(alloc, 1, 
+            left = make<AndTernaryNode>(alloc, 1, position,
                 left,
                 right
             );
@@ -769,7 +789,7 @@ Node* Parser::parse_expr(int min_lbp) {
             advance();
             auto right = parse_expr(lbp);
 
-            left = make<OrTernaryNode>(alloc, 1, 
+            left = make<OrTernaryNode>(alloc, 1, position,
                 left,
                 right
             );
@@ -780,7 +800,7 @@ Node* Parser::parse_expr(int min_lbp) {
             advance();
             auto right = parse_expr(lbp);
 
-            left = make<BitwiseNode>(alloc, 1, 
+            left = make<BitwiseNode>(alloc, 1, position,
                 op,
                 left,
                 right
@@ -792,7 +812,7 @@ Node* Parser::parse_expr(int min_lbp) {
             advance();
             Node* right = parse_expr(lbp);
 
-            left = make<BinaryOpNode>(alloc, 1, 
+            left = make<BinaryOpNode>(alloc, 1, position,
                 op,
                 left,
                 right

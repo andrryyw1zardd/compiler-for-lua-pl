@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <utility>
+#include "lexer/lexer.hpp"
 
 class Arena {
 private:
@@ -47,10 +48,14 @@ public:
 };
 
 template <typename T, typename Alloc, typename... Args>
-T* make(Alloc& alloc, size_t count, Args... args) {
+T* make(Alloc& alloc, size_t count, Vect2 position, Args... args) {
+    // count here is the count of variables to be allocated
     T* variable = alloc.template alloc_as<T>(count);
+
+    // allocating it with passing arguments
     new (variable) T(std::forward<Args>(args)...);
 
+    variable->position = position;
     return variable;
 }
 
