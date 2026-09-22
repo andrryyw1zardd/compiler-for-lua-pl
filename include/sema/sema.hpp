@@ -38,12 +38,12 @@ struct Symbol {
     // too much optional shit here, must do something about it 
     std::optional<std::vector<DataType>> return_types_ = std::nullopt;
 
-    std::optional<bool> have_const_attr = false;
-    std::optional<std::unordered_map<std::variant<std::string, int>, Symbol::DataType>> element_types = std::nullopt;
+    std::optional<bool> have_const_attr_ = false;
+    std::optional<std::unordered_map<std::variant<std::string, int>, Symbol::DataType>> element_types_ = std::nullopt;
 
     // for objects with variables or/and with methods
-    std::optional<std::vector<std::string>> variable_map = std::nullopt;
-    std::optional<std::vector<std::string>> method_map = std::nullopt;
+    std::optional<std::vector<std::string>> variable_map_ = std::nullopt;
+    std::optional<std::vector<std::string>> method_map_ = std::nullopt;
 
     bool is_used_ = false;
     Node* node_ = nullptr;
@@ -105,10 +105,12 @@ private:
 public:
     SemanticAnalyzer(DiagnosticEngine& d) : diags_(d) { 
         scopes_.push_back(std::make_unique<Scope>(nullptr));
-        initGLobals();
+        initGlobalFunctions();
+        initGlobalMethods();
     }
 
-    void initGLobals();
+    void initGlobalFunctions();
+    void initGlobalMethods();
  
     void print_diags();
     int diag_count();

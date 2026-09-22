@@ -130,14 +130,14 @@ std::vector<std::string>* DiagnosticEngine::get_diags() {
     return &diag_vect_;
 }
 
-void SemanticAnalyzer::initGLobals() {
+void SemanticAnalyzer::initGlobalFunctions() {
     std::array<std::string, 10> globalFuncNames {
         "print", "type", "tostring", "tonumber",
         "error", "assert", "select", "next",
-        "pairs", "ipairs" 
+        "pairs", "ipairs"
     };
 
-    std::array<std::vector<Symbol::DataType>, 10> globalFuncRetTypes {
+    std::vector<std::vector<Symbol::DataType>> globalFuncRetTypes {
         std::vector<Symbol::DataType>{Symbol::DataType::NIL}, // print
         std::vector<Symbol::DataType>{Symbol::DataType::STRING}, // type
         std::vector<Symbol::DataType>{Symbol::DataType::STRING}, // tostring
@@ -159,6 +159,84 @@ void SemanticAnalyzer::initGLobals() {
             .node_ = nullptr };
 
         scopes_.front()->add_into_symbols(globalFuncNames[i], symb);
+    }
+}
+
+void SemanticAnalyzer::initGlobalMethods() {
+    using DT = Symbol::DataType;
+     
+    std::vector<std::string> globalIdentNames = {
+        "math", "string", "table", "os", "io", "coroutine", "utf8", "debug",
+        "package", "file" };
+     
+    std::vector<std::vector<std::string>> globalMethodNames = {
+        { "abs", "ceil", "floor", "sqrt", "sin", "cos", "tan", "asin", "acos",
+          "atan", "exp", "log", "fmod", "modf", "max", "min", "random",
+          "randomseed", "tointeger", "type", "ult" },
+        { "byte", "char", "dump", "find", "format", "gmatch", "gsub", "len",
+          "lower", "match", "pack", "packsize", "rep", "reverse", "sub",
+          "upper", "unpack" },
+        { "concat", "insert", "move", "pack", "remove", "sort", "unpack" },
+        { "clock", "date", "difftime", "execute", "exit", "getenv", "remove",
+          "rename", "setlocale", "time", "tmpname" },
+        { "close", "flush", "input", "lines", "open", "output", "popen",
+          "read", "tmpfile", "write" },
+        { "create", "isyieldable", "resume", "running", "status", "wrap",
+          "yield", "close" },
+        { "char", "codepoint", "codes", "len", "offset" },
+        { "debug", "gethook", "getinfo", "getlocal", "getmetatable",
+          "getregistry", "getupvalue", "getuservalue", "sethook", "setlocal",
+          "setmetatable", "setupvalue", "setuservalue", "traceback",
+          "upvalueid", "upvaluejoin" },
+        { "loadlib", "searchpath" },
+        { "close", "flush", "lines", "read", "seek", "setvbuf", "write" }
+    };
+     
+    std::vector<std::vector<DT>> globalMethodRetTypes = {
+        { DT::FLOAT, DT::INT, DT::INT, DT::FLOAT, DT::FLOAT, DT::FLOAT,
+          DT::FLOAT, DT::FLOAT, DT::FLOAT, DT::FLOAT, DT::FLOAT, DT::FLOAT,
+          DT::FLOAT, DT::UNKNOWN, DT::FLOAT, DT::FLOAT, DT::FLOAT, DT::NIL,
+          DT::UNKNOWN, DT::STRING, DT::BOOL
+        },
+        { DT::UNKNOWN, DT::STRING, DT::STRING, DT::UNKNOWN, DT::STRING,
+          DT::FUNCTION, DT::UNKNOWN, DT::INT, DT::STRING, DT::UNKNOWN,
+          DT::STRING, DT::INT, DT::STRING, DT::STRING, DT::STRING,
+          DT::STRING, DT::UNKNOWN 
+        },
+        { DT::STRING, DT::NIL, DT::TABLE, DT::TABLE, DT::UNKNOWN, DT::NIL,
+          DT::UNKNOWN 
+        },
+        { DT::FLOAT, DT::UNKNOWN, DT::FLOAT, DT::UNKNOWN, DT::NIL,
+          DT::UNKNOWN, DT::UNKNOWN, DT::UNKNOWN, DT::UNKNOWN, DT::INT,
+          DT::STRING 
+        },
+        { DT::BOOL, DT::BOOL, DT::UNKNOWN, DT::FUNCTION, DT::UNKNOWN,
+          DT::UNKNOWN, DT::UNKNOWN, DT::UNKNOWN, DT::UNKNOWN, DT::UNKNOWN 
+        },
+        { DT::UNKNOWN, DT::BOOL, DT::UNKNOWN, DT::UNKNOWN, DT::STRING,
+          DT::FUNCTION, DT::UNKNOWN, DT::BOOL 
+        },
+        { DT::STRING, DT::UNKNOWN, DT::FUNCTION, DT::UNKNOWN, DT::INT },
+        { DT::NIL, DT::UNKNOWN, DT::TABLE, DT::UNKNOWN, DT::TABLE, DT::TABLE,
+          DT::UNKNOWN, DT::UNKNOWN, DT::NIL, DT::STRING, DT::UNKNOWN,
+          DT::STRING, DT::UNKNOWN, DT::STRING, DT::UNKNOWN, DT::NIL 
+        },
+        { DT::UNKNOWN, DT::UNKNOWN },
+        { DT::BOOL, DT::UNKNOWN, DT::FUNCTION, DT::UNKNOWN, DT::UNKNOWN,
+          DT::BOOL, DT::UNKNOWN }
+    };
+
+
+    for (size_t i = 0; i < globalMethodRetTypes.size(); ++i) {
+        Symbol symb = {
+            .kind_ = Symbol::Kind::GLOBAL,
+            .data_type_ = Symbol::DataType::NIL,
+            .return_types_ = globalMethodRetTypes[i],
+            .method_map_ = globalMethodNames[i],
+            .is_used_ = false,
+            .node_ = nullptr };
+
+        scopes_.front()->add_into_symbols(globalIdentNames[i], symb);
     }
 }
 
@@ -209,8 +287,8 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
             .node_ = left 
         };
 
-        if (i < mvNode->const_vect.size() && mvNode->const_vect[i]) vSymb.have_const_attr = true;
-        else vSymb.have_const_attr = false;
+        if (i < mvNode->const_vect.size() && mvNode->const_vect[i]) vSymb.have_const_attr_ = true;
+        else vSymb.have_const_attr_ = false;
 
         scopes_.back()->add_into_symbols(lName, vSymb);
     }
@@ -245,7 +323,7 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
                     return;
                 }
 
-                symb->element_types = converted_arr->element_types;
+                symb->element_types_ = converted_arr->element_types;
             }
 
             lDtVect.push_back(Symbol::DataType::TABLE);
@@ -311,7 +389,7 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
                 "undefined identificator", lName,
                 DiagnosticEngine::DiagType::ERROR, left);
         }
-        if (symb->have_const_attr.value_or(false)) {
+        if (symb->have_const_attr_.value_or(false)) {
             diags_.collect_diags(
                 "variable with const attribute cant be modified. variable", lName,
                 DiagnosticEngine::DiagType::ERROR, left);
@@ -347,7 +425,7 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
                     return;
                 }
 
-                symb->element_types = converted_arr->element_types;
+                symb->element_types_ = converted_arr->element_types;
             }
 
             lDtVect.push_back(Symbol::DataType::TABLE);
@@ -521,9 +599,9 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
     symb->data_type_ = base->node_data_type.value();
 
     for (const auto& q: qualifiers) { 
-        auto qual = symb->element_types.value().find(q);
+        auto qual = symb->element_types_.value().find(q);
 
-        if (qual == symb->element_types->end()) {
+        if (qual == symb->element_types_->end()) {
             diags_.collect_diags(
                 "undefined qualifier", q,
                 DiagnosticEngine::DiagType::ERROR, maNode);
@@ -531,7 +609,7 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
         }
     }
 
-    maNode->node_data_type = symb->element_types.value()[qualifiers[0]];
+    maNode->node_data_type = symb->element_types_.value()[qualifiers[0]];
 }
 
 void SemanticAnalyzer::visit(ArrayNode* aNode) {
@@ -630,7 +708,7 @@ void SemanticAnalyzer::visit(ExprWithIndexNode* eNode) {
         return;
     }
 
-    if (symb->data_type_ != Symbol::DataType::TABLE || !symb->element_types) {
+    if (symb->data_type_ != Symbol::DataType::TABLE || !symb->element_types_) {
         diags_.collect_diags(
             "expected data type 'table' but got", name_left,
             DiagnosticEngine::DiagType::ERROR, converted_left);
@@ -661,9 +739,9 @@ void SemanticAnalyzer::visit(ExprWithIndexNode* eNode) {
                 || node->value.type == Type::LIT_HEX) 
             {
                 auto value = std::get<int>(node->value.value);
-                auto data_type = symb->element_types.value().find(value);
+                auto data_type = symb->element_types_.value().find(value);
 
-                if (data_type != symb->element_types.value().end()) {
+                if (data_type != symb->element_types_.value().end()) {
                     eNode->node_data_type = data_type->second;
                 }
                 else {
@@ -679,9 +757,9 @@ void SemanticAnalyzer::visit(ExprWithIndexNode* eNode) {
                 || node->value.type == Type::LIT_LONG_STRING) 
             {
                 auto value = std::get<std::string>(node->value.value);
-                auto data_type = symb->element_types.value().find(value);
+                auto data_type = symb->element_types_.value().find(value);
 
-                if (data_type != symb->element_types.value().end()) {
+                if (data_type != symb->element_types_.value().end()) {
                     eNode->node_data_type = data_type->second;
                 }
                 else {
@@ -770,7 +848,7 @@ void SemanticAnalyzer::visit(MethodNode* mNode) {
         .node_ = mNode 
     };
 
-    class_symb->method_map->push_back(meth_name);
+    class_symb->method_map_->push_back(meth_name);
 
     makeFuncScope(mNode);
     makeScope();
