@@ -441,6 +441,8 @@ struct MethodCallNode : Node {
     Node* object_name;
     std::vector<Node*, ArenaAllocator<Node*>> args;
 
+    std::optional<std::vector<Symbol::DataType>> return_types = std::nullopt;
+
     MethodCallNode(Token m, Node* o, std::vector<Node*, ArenaAllocator<Node*>> a) 
     : method_name(std::move(m)), object_name(o), args(std::move(a)) {}
 

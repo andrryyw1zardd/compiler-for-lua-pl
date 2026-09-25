@@ -848,6 +848,7 @@ void SemanticAnalyzer::visit(MethodNode* mNode) {
         .node_ = mNode 
     };
 
+    scopes_.back()->add_into_symbols(meth_name, meth_symb);
     class_symb->method_map_->push_back(meth_name);
 
     makeFuncScope(mNode);
@@ -943,14 +944,104 @@ void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
     fcNode->ret_data_types = symb->return_types_;
 }
 
-// Object1.Arg1.foo()
-// ^^^^^^^^^^  ^^^^^
-//  object     method
 void SemanticAnalyzer::visit(MethodCallNode* mcNode) {
     mcNode->object_name->accept(*this);
 
-    // MemberAccessNode is broken cuz the qualifier is always variable
-    // and in this case, the logic is broken
+    auto* converted_into_var = dynamic_cast<VariableNode*>(mcNode);
+    auto* converted_into_mem = dynamic_cast<MemberAccessNode*>(mcNode);
+
+    if (converted_into_var) {
+        std::string name = std::get<std::string>(converted_into_var->value.value);
+
+        auto symb = scopes_.back()->lookup(name);
+        if (!symb) {
+            diags_.collect_diags(
+                    "undefined object", name,
+                    DiagnosticEngine::DiagType::ERROR, converted_into_var);
+            return;
+        }
+
+        std::string meth_name = std::get<std::string>(mcNode->method_name.value);
+
+        auto meth_symb = scopes_.back()->lookup(meth_name);
+        if (!meth_symb) {
+            diags_.collect_diags(
+                    "undefined method", meth_name,
+                    DiagnosticEngine::DiagType::ERROR, converted_into_var);
+            return;
+        }
+
+        for (size_t i = 0; i < symb->method_map_.value().size(); i++) {
+            auto method = symb->method_map_.value()[i];
+
+            if (meth_name == method) {
+                mcNode->return_types = *meth_symb->return_types_;
+                break;
+            }
+        }
+
+        if (mcNode->return_types->empty()) {
+            mcNode->node_data_type = Symbol::DataType::NIL;
+            return;
+        }
+    }
+    else if (converted_into_mem) {
+        std::vector<std::string> qualifiers {};
+        Node* current = converted_into_mem;
+
+        while (auto converted = dynamic_cast<MemberAccessNode*>(current)) {
+            qualifiers.push_back(std::get<std::string>(converted->qualifier.value));
+            current = converted->value;
+        }
+
+        auto base = dynamic_cast<VariableNode*>(current);
+        if (!base) {
+            diags_.collect_diags(
+                "member access on non-indentifier expression", std::string(current->getName()),
+                DiagnosticEngine::DiagType::ERROR, converted_into_mem);
+            return;
+        }
+
+        std::string base_name = std::get<std::string>(base->value.value);
+
+        Symbol* symb = scopes_.back()->lookup(base_name);
+        if (!symb) {
+            diags_.collect_diags(
+                "undefined qualifier", base_name,
+                DiagnosticEngine::DiagType::ERROR, base);
+            return;
+        }
+
+        std::string meth_name = std::get<std::string>(mcNode->method_name.value);
+
+        auto meth_symb = scopes_.back()->lookup(meth_name);
+        if (!meth_symb) {
+            diags_.collect_diags(
+                    "undefined method", meth_name,
+                    DiagnosticEngine::DiagType::ERROR, converted_into_var);
+            return;
+        }
+
+        for (size_t i = 0; i < symb->method_map_.value().size(); i++) {
+            auto method = symb->method_map_.value()[i];
+
+            if (meth_name == method) {
+                mcNode->return_types = *meth_symb->return_types_;
+                break;
+            }
+        }
+
+        if (mcNode->return_types->empty()) {
+            mcNode->node_data_type = Symbol::DataType::NIL;
+            return;
+        }
+    }
+    else {
+        diags_.collect_diags(
+                "unexpected indentificator with type", std::string(mcNode->getName()),
+                DiagnosticEngine::DiagType::ERROR, mcNode);
+        return;
+    }
 
     for (const auto& arg: mcNode->args) {
         arg->accept(*this);
