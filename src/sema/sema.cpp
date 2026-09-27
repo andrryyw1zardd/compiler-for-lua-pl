@@ -486,7 +486,7 @@ void SemanticAnalyzer::visit(BasicDataNode* bdNode) {
             break;
             
         default:
-            bdNode->node_data_type = Symbol::DataType::UNKNOWN;
+            bdNode->node_data_type = Symbol::DataType::NIL;
             break;
     }
 }
@@ -849,6 +849,11 @@ void SemanticAnalyzer::visit(MethodNode* mNode) {
     };
 
     scopes_.back()->add_into_symbols(meth_name, meth_symb);
+
+    if (!class_symb->method_map_) {
+        class_symb->method_map_.emplace();
+    }
+
     class_symb->method_map_->push_back(meth_name);
 
     makeFuncScope(mNode);
@@ -923,32 +928,88 @@ void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
         arg->accept(*this);
     }
 
-    VariableNode* converted = dynamic_cast<VariableNode*>(fcNode->callee);
-    if (!converted) {
-        diags_.collect_diags(
-            "invalid function call", std::string(fcNode->getName()),
-            DiagnosticEngine::DiagType::ERROR, fcNode);
+    auto* converted_into_var = dynamic_cast<VariableNode*>(fcNode->callee);
+    auto* converted_into_mem = dynamic_cast<MemberAccessNode*>(fcNode->callee);
+
+    if (converted_into_var) {
+        std::string fcName = std::get<std::string>(converted_into_var->value.value);
+
+        auto symb = scopes_.back()->lookup(fcName);
+        if (!symb) {
+            diags_.collect_diags(
+                "compiler: cant find function call name in symbol table", fcName,
+                DiagnosticEngine::DiagType::ERROR, fcNode);
+            return;
+        }
+
+        fcNode->ret_data_types = symb->return_types_;
         return;
     }
 
-    std::string fcName = std::get<std::string>(converted->value.value);
+    if (converted_into_mem) {
+        std::vector<std::string> qualifier_names {};
+        Node* current = converted_into_mem;
 
-    auto symb = scopes_.back()->lookup(fcName);
-    if (!symb) {
-        diags_.collect_diags(
-            "compiler: cant find function call name in symbol table", fcName,
-            DiagnosticEngine::DiagType::ERROR, fcNode);
+        while (auto converted = dynamic_cast<MemberAccessNode*>(current)) {
+            qualifier_names.push_back(std::get<std::string>(converted->qualifier.value));
+            current = converted->value;
+        }
+
+        auto base = dynamic_cast<VariableNode*>(current);
+        if (!base) {
+            diags_.collect_diags(
+                "member access on non-indentifier expression", std::string(current->getName()),
+                DiagnosticEngine::DiagType::ERROR, converted_into_mem);
+            return;
+        }
+
+        std::string base_name = std::get<std::string>(base->value.value);
+
+        Symbol* symb = scopes_.back()->lookup(base_name);
+        if (!symb) {
+            diags_.collect_diags(
+                "undefined qualifier", base_name,
+                DiagnosticEngine::DiagType::ERROR, base);
+            return;
+        }
+
+        std::string meth_name = qualifier_names[0];
+
+        auto meth_symb = scopes_.back()->lookup(meth_name);
+        if (!meth_symb) {
+            diags_.collect_diags(
+                    "undefined method", meth_name,
+                    DiagnosticEngine::DiagType::ERROR, converted_into_var);
+            return;
+        }
+
+        for (size_t i = 0; i < symb->method_map_.value().size(); i++) {
+            auto method = symb->method_map_.value()[i];
+
+            if (meth_name == method) {
+                fcNode->ret_data_types = *meth_symb->return_types_;
+                break;
+            }
+        }
+
+        if (fcNode->ret_data_types->empty()) {
+            fcNode->node_data_type = Symbol::DataType::NIL;
+            return;
+        }
+
         return;
     }
 
-    fcNode->ret_data_types = symb->return_types_;
+    diags_.collect_diags(
+        "invalid function call", std::string(fcNode->getName()),
+        DiagnosticEngine::DiagType::ERROR, fcNode);
 }
 
 void SemanticAnalyzer::visit(MethodCallNode* mcNode) {
     mcNode->object_name->accept(*this);
 
-    auto* converted_into_var = dynamic_cast<VariableNode*>(mcNode);
-    auto* converted_into_mem = dynamic_cast<MemberAccessNode*>(mcNode);
+    auto* converted_into_var = dynamic_cast<VariableNode*>(mcNode->object_name);
+    auto* converted_into_mem = dynamic_cast<MemberAccessNode*>(mcNode->object_name);
 
     if (converted_into_var) {
         std::string name = std::get<std::string>(converted_into_var->value.value);
@@ -986,11 +1047,12 @@ void SemanticAnalyzer::visit(MethodCallNode* mcNode) {
         }
     }
     else if (converted_into_mem) {
-        std::vector<std::string> qualifiers {};
+        // created qualifier_names but didnt check the qualifiers to exist
+        std::vector<std::string> qualifier_names {};
         Node* current = converted_into_mem;
 
         while (auto converted = dynamic_cast<MemberAccessNode*>(current)) {
-            qualifiers.push_back(std::get<std::string>(converted->qualifier.value));
+            qualifier_names.push_back(std::get<std::string>(converted->qualifier.value));
             current = converted->value;
         }
 
@@ -1057,7 +1119,7 @@ void SemanticAnalyzer::visit(ReturnNode* rNode) {
         if (iter->node_data_type) {
             temp_vect.push_back(*iter->node_data_type);
         }
-        else temp_vect.push_back(Symbol::DataType::UNKNOWN);
+        else temp_vect.push_back(Symbol::DataType::NIL);
     }
 
     // if current function is a basic function (no matter local or global)
@@ -1136,28 +1198,19 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
     boNode->left->accept(*this);
     boNode->right->accept(*this);
 
-    if (boNode->left->node_data_type == Symbol::DataType::UNKNOWN
-     || boNode->right->node_data_type == Symbol::DataType::UNKNOWN)
-    {
-        diags_.collect_diags(
-            "invalid data type of", 
-            std::string(boNode->getName()),
-            DiagnosticEngine::DiagType::ERROR, boNode);
-        return;
-    }
-
     switch (boNode->op) {
         case Type::EQUAL_EQUAL:
         case Type::NOT_EQUAL:
             boNode->node_data_type = Symbol::DataType::BOOL;
             break;
-case Type::GREATER:
+        case Type::GREATER:
         case Type::GREATER_EQUAL:
         case Type::LESS:
         case Type::LESS_EQUAL:
             if (boNode->left->node_data_type != Symbol::DataType::INT 
                 && boNode->left->node_data_type != Symbol::DataType::FLOAT
-                && boNode->left->node_data_type != Symbol::DataType::STRING) {
+                && boNode->left->node_data_type != Symbol::DataType::STRING
+                && boNode->left->node_data_type != Symbol::DataType::UNKNOWN) {
                 diags_.collect_diags(
                     "invalid data type of", 
                     std::string(boNode->getName()),
@@ -1166,7 +1219,8 @@ case Type::GREATER:
             }
             if (boNode->right->node_data_type != Symbol::DataType::INT 
                 && boNode->right->node_data_type != Symbol::DataType::FLOAT
-                && boNode->right->node_data_type != Symbol::DataType::STRING) {
+                && boNode->right->node_data_type != Symbol::DataType::STRING
+                && boNode->left->node_data_type != Symbol::DataType::UNKNOWN) {
                 diags_.collect_diags(
                     "invalid data type of", 
                     std::string(boNode->getName()),
@@ -1183,7 +1237,8 @@ case Type::GREATER:
         case Type::PERCENT:
         case Type::DOUBLE_SLASH:
             if (boNode->left->node_data_type != Symbol::DataType::INT 
-                && boNode->left->node_data_type != Symbol::DataType::FLOAT) {
+                && boNode->left->node_data_type != Symbol::DataType::FLOAT
+                && boNode->left->node_data_type != Symbol::DataType::UNKNOWN) {
                 diags_.collect_diags(
                     "invalid data type of", 
                     std::string(boNode->getName()),
@@ -1191,7 +1246,8 @@ case Type::GREATER:
                 break;
             }
             if (boNode->right->node_data_type != Symbol::DataType::INT 
-                && boNode->right->node_data_type != Symbol::DataType::FLOAT) {
+                && boNode->left->node_data_type != Symbol::DataType::FLOAT
+                && boNode->left->node_data_type != Symbol::DataType::UNKNOWN) {
                 diags_.collect_diags(
                     "invalid data type of", 
                     std::string(boNode->getName()),
@@ -1213,7 +1269,8 @@ case Type::GREATER:
         case Type::CONCAT:
             if (boNode->left->node_data_type != Symbol::DataType::INT 
                 && boNode->left->node_data_type != Symbol::DataType::FLOAT
-                && boNode->left->node_data_type != Symbol::DataType::STRING) {
+                && boNode->left->node_data_type != Symbol::DataType::STRING
+                && boNode->left->node_data_type != Symbol::DataType::UNKNOWN) {
                 diags_.collect_diags(
                     "invalid data type of", 
                     std::string(boNode->getName()),
@@ -1222,7 +1279,8 @@ case Type::GREATER:
             }
             if (boNode->right->node_data_type != Symbol::DataType::INT 
                 && boNode->right->node_data_type != Symbol::DataType::FLOAT
-                && boNode->right->node_data_type != Symbol::DataType::STRING) {
+                && boNode->left->node_data_type != Symbol::DataType::STRING
+                && boNode->left->node_data_type != Symbol::DataType::UNKNOWN) {
                 diags_.collect_diags(
                     "invalid data type of", 
                     std::string(boNode->getName()),
@@ -1237,7 +1295,8 @@ case Type::GREATER:
         case Type::CARET:
         case Type::SLASH:
             if (boNode->left->node_data_type != Symbol::DataType::INT 
-                && boNode->left->node_data_type != Symbol::DataType::FLOAT) {
+                && boNode->left->node_data_type != Symbol::DataType::FLOAT
+                && boNode->left->node_data_type != Symbol::DataType::UNKNOWN) {
                 diags_.collect_diags(
                     "invalid data type of", 
                     std::string(boNode->getName()),
