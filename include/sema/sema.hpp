@@ -9,7 +9,7 @@
 
 struct Node; struct UnaryOpNode; struct BinaryOpNode; struct BitwiseNode;
 struct MemberAccessNode; struct BasicDataNode; struct VariableNode;
-struct MultipleVariableNode; struct AndTernaryNode; struct IdentNode;
+struct MultipleVariableNode; struct AndTernaryNode; struct IdentNode; struct EllipsisNode;
 struct OrTernaryNode; struct ArrayNode; struct ExprWithIndexNode; struct ReturnNode;
 struct TableFieldNode; struct IfNode; struct ElseIfNode;
 struct DoNode; struct WhileNode; struct NumericForNode; struct MethodCallNode;
@@ -33,7 +33,7 @@ struct Symbol {
     enum class Kind { GLOBAL, PARAM, LOCAL, UPVALUE };
     Kind kind_;
 
-    enum class DataType { INT, FLOAT, TABLE, STRING, BOOL, NIL, UNKNOWN, FUNCTION };
+    enum class DataType { INT, FLOAT, TABLE, STRING, BOOL, NIL, UNKNOWN, ELLIPSIS, FUNCTION };
     DataType data_type_;
     // too much optional shit here, must do something about it 
     std::optional<std::vector<DataType>> return_types_ = std::nullopt;
@@ -76,6 +76,7 @@ public:
     virtual void visit(VariableNode*) = 0;
     virtual void visit(MultipleVariableNode*) = 0;
     virtual void visit(IdentNode*) = 0;
+    virtual void visit(EllipsisNode*) = 0;
     virtual void visit(AndTernaryNode*) = 0;
     virtual void visit(OrTernaryNode*) = 0;
     virtual void visit(ArrayNode*) = 0;
@@ -130,6 +131,7 @@ public:
     void visit(BasicDataNode*) override final;
     void visit(UnaryOpNode*) override final;
     void visit(MemberAccessNode*) override final;
+    void visit(EllipsisNode*) override final;
 
     // table things
     void visit(ArrayNode*) override final;

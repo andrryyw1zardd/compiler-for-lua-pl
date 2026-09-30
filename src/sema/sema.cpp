@@ -147,7 +147,8 @@ void SemanticAnalyzer::initGlobalFunctions() {
         std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN}, // select (it returns its own args, 0 or more)
         std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN, Symbol::DataType::UNKNOWN}, // next (key, value)
         std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN}, // pairs (can return iter, table or nil, so just UNKNOWN)
-        std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN}, // ipairs (same as pairs just 0 instead of nil)
+        std::vector<Symbol::DataType>{ Symbol::DataType::UNKNOWN,
+            Symbol::DataType::UNKNOWN, Symbol::DataType::UNKNOWN} // ipairs (same as pairs just 0 instead of nil)
     };
 
     for (size_t i = 0; i < globalFuncRetTypes.size(); ++i) {
@@ -484,7 +485,7 @@ void SemanticAnalyzer::visit(BasicDataNode* bdNode) {
         case Type::KW_FALSE:
             bdNode->node_data_type = Symbol::DataType::BOOL;
             break;
-            
+
         default:
             bdNode->node_data_type = Symbol::DataType::NIL;
             break;
@@ -610,6 +611,10 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
     }
 
     maNode->node_data_type = symb->element_types_.value()[qualifiers[0]];
+}
+
+void SemanticAnalyzer::visit(EllipsisNode* eNode) {
+    eNode->node_data_type = Symbol::DataType::ELLIPSIS;
 }
 
 void SemanticAnalyzer::visit(ArrayNode* aNode) {
@@ -798,28 +803,32 @@ void SemanticAnalyzer::visit(FunctionNode* fNode) {
     makeFuncScope(fNode);
     makeScope();
     for (auto& arg : fNode->args) {
-        VariableNode* converted = dynamic_cast<VariableNode*>(arg);
+        VariableNode* converted_var = dynamic_cast<VariableNode*>(arg);
+        EllipsisNode* converted_ell = dynamic_cast<EllipsisNode*>(arg);
 
         // this if stat can work only if param of func was invalid
         // so for expample: function foo(1+2, val) ... end 
         // here, its not allowed to pass '1+2' as func param
-        if (!converted) {
+        if (converted_var) {
+            std::string vName = std::get<std::string>(converted_var->value.value);
+            Symbol vSymb = {
+                .kind_ = Symbol::Kind::PARAM,
+                .data_type_ = Symbol::DataType::UNKNOWN,
+                .is_used_ = false, 
+                .node_ = arg 
+            };
+
+            scopes_.back()->add_into_symbols(vName, vSymb);
+        }
+        // should change FunctionCallNode, MethodNode, MethodCallNode to support ellipsis
+        else if (converted_ell) {
+            fNode->have_ellipsis = true;
+        }
+        else {
             diags_.collect_diags(
                 "invalid function param in function", funcName,
                 DiagnosticEngine::DiagType::ERROR, fNode);
-
-            continue;
         }
-
-        std::string vName = std::get<std::string>(converted->value.value);
-        Symbol vSymb = {
-            .kind_ = Symbol::Kind::PARAM,
-            .data_type_ = Symbol::DataType::UNKNOWN,
-            .is_used_ = false, 
-            .node_ = arg 
-        };
-
-        scopes_.back()->add_into_symbols(vName, vSymb);
     }
 
     for (const auto& var : fNode->body) {
@@ -1220,7 +1229,7 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
             if (boNode->right->node_data_type != Symbol::DataType::INT 
                 && boNode->right->node_data_type != Symbol::DataType::FLOAT
                 && boNode->right->node_data_type != Symbol::DataType::STRING
-                && boNode->left->node_data_type != Symbol::DataType::UNKNOWN) {
+                && boNode->right->node_data_type != Symbol::DataType::UNKNOWN) {
                 diags_.collect_diags(
                     "invalid data type of", 
                     std::string(boNode->getName()),
@@ -1246,8 +1255,8 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
                 break;
             }
             if (boNode->right->node_data_type != Symbol::DataType::INT 
-                && boNode->left->node_data_type != Symbol::DataType::FLOAT
-                && boNode->left->node_data_type != Symbol::DataType::UNKNOWN) {
+                && boNode->right->node_data_type != Symbol::DataType::FLOAT
+                && boNode->right->node_data_type != Symbol::DataType::UNKNOWN) {
                 diags_.collect_diags(
                     "invalid data type of", 
                     std::string(boNode->getName()),
@@ -1279,8 +1288,8 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
             }
             if (boNode->right->node_data_type != Symbol::DataType::INT 
                 && boNode->right->node_data_type != Symbol::DataType::FLOAT
-                && boNode->left->node_data_type != Symbol::DataType::STRING
-                && boNode->left->node_data_type != Symbol::DataType::UNKNOWN) {
+                && boNode->right->node_data_type != Symbol::DataType::STRING
+                && boNode->right->node_data_type != Symbol::DataType::UNKNOWN) {
                 diags_.collect_diags(
                     "invalid data type of", 
                     std::string(boNode->getName()),
@@ -1304,7 +1313,8 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
                 break;
             }
             if (boNode->right->node_data_type != Symbol::DataType::INT 
-                && boNode->right->node_data_type != Symbol::DataType::FLOAT) {
+                && boNode->right->node_data_type != Symbol::DataType::FLOAT
+                && boNode->right->node_data_type != Symbol::DataType::UNKNOWN) {
                 diags_.collect_diags(
                     "invalid data type of", 
                     std::string(boNode->getName()),
@@ -1453,7 +1463,86 @@ void SemanticAnalyzer::visit(NumericForNode* nfNode) {
 }
 
 void SemanticAnalyzer::visit(GenericForNode* gfNode) { 
-    gfNode->fn->accept(*this);
+    FunctionCallNode* converted_fn = dynamic_cast<FunctionCallNode*>(gfNode->fn);
+    MethodCallNode* converted_mh = dynamic_cast<MethodCallNode*>(gfNode->fn);
+
+    makeScope();
+    if (converted_fn) {
+        converted_fn->accept(*this);
+
+        // too much variables
+        if (converted_fn->ret_data_types->size() < gfNode->keyArgs.size()) {
+            diags_.collect_diags(
+                    "in 'generic for': wrong count of the varables or functions return value(s) statement with data type of", 
+                    std::string(converted_fn->getName()), DiagnosticEngine::DiagType::ERROR, converted_fn);
+            return;
+        }
+
+        for (size_t i = 0; i < gfNode->keyArgs.size(); ++i) {
+            gfNode->keyArgs[i]->accept(*this);
+
+            VariableNode* converted_key = dynamic_cast<VariableNode*>(gfNode->keyArgs[i]);
+            if (!converted_key) {
+                diags_.collect_diags(
+                        "unexpected identificator with data type of", 
+                        std::string(gfNode->keyArgs[i]->getName()),
+                        DiagnosticEngine::DiagType::ERROR, gfNode->keyArgs[i]);
+                return;
+            }
+
+            std::string name_key = std::get<std::string>(converted_key->value.value);
+            Symbol symb = Symbol {
+                .kind_ = Symbol::Kind::LOCAL,
+                .data_type_ = converted_fn->ret_data_types.value()[i],
+                .is_used_ = false,
+                .node_ = converted_key
+            };
+
+            scopes_.back()->add_into_symbols(name_key, symb);
+        }
+    }
+    else if (converted_mh) {
+        converted_mh->accept(*this);
+
+        // too much variables
+        if (converted_mh->return_types->size() < gfNode->keyArgs.size()) {
+            diags_.collect_diags(
+                    "in 'generic for': wrong count of the varables or methods return value(s) statement with data type of", 
+                    std::string(converted_fn->getName()), DiagnosticEngine::DiagType::ERROR, converted_fn);
+            return;
+        }
+
+        for (size_t i = 0; i < gfNode->keyArgs.size(); ++i) {
+            gfNode->keyArgs[i]->accept(*this);
+
+            VariableNode* converted_key = dynamic_cast<VariableNode*>(gfNode->keyArgs[i]);
+            if (!converted_key) {
+                diags_.collect_diags(
+                        "unexpected identificator with data type of", 
+                        std::string(gfNode->keyArgs[i]->getName()),
+                        DiagnosticEngine::DiagType::ERROR, gfNode->keyArgs[i]);
+                return;
+            }
+
+            std::string name_key = std::get<std::string>(converted_key->value.value);
+            Symbol symb = Symbol {
+                .kind_ = Symbol::Kind::LOCAL,
+                .data_type_ = converted_fn->ret_data_types.value()[i],
+                .is_used_ = false,
+                .node_ = converted_key
+            };
+
+            scopes_.back()->add_into_symbols(name_key, symb);
+        }
+    }
+    else {
+        diags_.collect_diags(
+                "unexpected identificator with data type of",
+                std::string(gfNode->fn->getName()),
+                DiagnosticEngine::DiagType::ERROR, gfNode->fn);
+        return;
+    }
+
     for (const auto& iter: gfNode->body) { iter->accept(*this); }
-    for (const auto& iter: gfNode->keyArgs) { iter->accept(*this); }
+    removeScope();
 }

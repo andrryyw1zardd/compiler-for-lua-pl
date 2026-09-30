@@ -76,3 +76,40 @@ local function sum(...)
     end
     return total
 end
+
+local function countArgs(...)
+    return select("#", ...)
+end
+
+print("\n-- Varargs --")
+print("sum(1,2,3,4) =", sum(1, 2, 3, 4))
+print("countArgs(1,2,3) =", countArgs(1, 2, 3))
+print("select(2, 'a','b','c') =", select(2, "a", "b", "c"))
+
+--------------------------------------------------------------------
+-- 8. Closures / Upvalues
+--------------------------------------------------------------------
+local function makeCounter()
+    local count = 0
+    return function()
+        count = count + 1
+        return count
+    end
+end
+
+print("\n-- Closures --")
+local counter1 = makeCounter()
+local counter2 = makeCounter()
+print(counter1(), counter1(), counter1())
+print(counter2())
+
+--------------------------------------------------------------------
+-- 9. Recursive local functions
+--------------------------------------------------------------------
+local function factorial(n)
+    if n <= 1 then return 1 end
+    return n * factorial(n - 1)
+end
+
+print("\n-- Recursion --")
+print("factorial(6) =", factorial(6))

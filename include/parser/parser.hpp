@@ -153,6 +153,18 @@ struct IdentNode : Node {
     }
 };
 
+struct EllipsisNode : Node {
+    EllipsisNode() { }; 
+
+    std::string_view getName() const override {
+        return "EllipsisNode";
+    }
+
+    void accept(Visitor& v) override {
+        v.visit(this);
+    }
+};
+
 struct AndTernaryNode : Node {
     Node* left;
     Node* right;
@@ -366,6 +378,8 @@ struct RepeatUntilNode : Node {
 struct FunctionNode : Node {
     Token value;
     bool isLocal = false;
+    std::optional<bool> have_ellipsis = false;
+
 
     std::vector<Node*, ArenaAllocator<Node*>> args;
     std::vector<Node*, ArenaAllocator<Node*>> body;

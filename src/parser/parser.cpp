@@ -572,13 +572,17 @@ Node* Parser::nud() {
 
     if (check(Type::LIT_INT) || check(Type::LIT_FLOAT) || check(Type::LIT_STRING)
         || check(Type::KW_TRUE) || check(Type::KW_FALSE) || check(Type::LIT_LONG_STRING)
-        || check(Type::LIT_HEX) || check(Type::LIT_CHAR) || check(Type::ELLIPSIS) 
-        || check(Type::KW_NIL)
+        || check(Type::LIT_HEX) || check(Type::LIT_CHAR) || check(Type::KW_NIL)
     ) {
         Token value = peek();
         advance();
 
         return make<BasicDataNode>(alloc, 1, position, std::move(value));
+    }
+    else if (check(Type::ELLIPSIS)) {
+        advance();
+
+        return make<EllipsisNode>(alloc, 1, position);
     }
     else if (std::ranges::find(UnaryOpSet, peek().type) != UnaryOpSet.end()) {
         Token op = advance();
