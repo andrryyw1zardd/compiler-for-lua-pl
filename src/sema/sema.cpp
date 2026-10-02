@@ -952,6 +952,12 @@ void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
         }
 
         fcNode->ret_data_types = symb->return_types_;
+
+        if (symb->return_types_->empty()) {
+            fcNode->node_data_type = Symbol::DataType::NIL;
+        }
+        else fcNode->node_data_type = symb->return_types_.value()[0];
+
         return;
     }
 
@@ -1001,10 +1007,10 @@ void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
             }
         }
 
-        if (fcNode->ret_data_types->empty()) {
+        if (symb->return_types_->empty()) {
             fcNode->node_data_type = Symbol::DataType::NIL;
-            return;
         }
+        else fcNode->node_data_type = symb->return_types_.value()[0];
 
         return;
     }
@@ -1050,10 +1056,10 @@ void SemanticAnalyzer::visit(MethodCallNode* mcNode) {
             }
         }
 
-        if (mcNode->return_types->empty()) {
+        if (symb->return_types_->empty()) {
             mcNode->node_data_type = Symbol::DataType::NIL;
-            return;
         }
+        else mcNode->node_data_type = symb->return_types_.value()[0];
     }
     else if (converted_into_mem) {
         // created qualifier_names but didnt check the qualifiers to exist
@@ -1102,10 +1108,10 @@ void SemanticAnalyzer::visit(MethodCallNode* mcNode) {
             }
         }
 
-        if (mcNode->return_types->empty()) {
+        if (symb->return_types_->empty()) {
             mcNode->node_data_type = Symbol::DataType::NIL;
-            return;
         }
+        else mcNode->node_data_type = symb->return_types_.value()[0];
     }
     else {
         diags_.collect_diags(
@@ -1158,18 +1164,7 @@ void SemanticAnalyzer::visit(ReturnNode* rNode) {
     // or the current is a anonymous function
     else if (std::holds_alternative<AnonFunctionNode*>(currentFuncScope())) {
         AnonFunctionNode* curr_func = std::get<AnonFunctionNode*>(currentFuncScope());
-
         curr_func->return_types = temp_vect;
-
-        if (!curr_func->return_types) {
-            curr_func->return_types = temp_vect;
-        } else {
-            if (*curr_func->return_types != temp_vect) {
-                diags_.collect_diags(
-                    "inconsistent/invalid return types in", 
-                    "anonymous function", DiagnosticEngine::DiagType::ERROR, rNode);
-            }
-        }
     }
 
     // MethodNode
@@ -1224,9 +1219,8 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
                     "invalid data type of", 
                     std::string(boNode->getName()),
                     DiagnosticEngine::DiagType::ERROR, boNode);
-                break;
             }
-            if (boNode->right->node_data_type != Symbol::DataType::INT 
+            else if (boNode->right->node_data_type != Symbol::DataType::INT 
                 && boNode->right->node_data_type != Symbol::DataType::FLOAT
                 && boNode->right->node_data_type != Symbol::DataType::STRING
                 && boNode->right->node_data_type != Symbol::DataType::UNKNOWN) {
@@ -1234,7 +1228,6 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
                     "invalid data type of", 
                     std::string(boNode->getName()),
                     DiagnosticEngine::DiagType::ERROR, boNode);
-                break;
             }
 
             boNode->node_data_type = Symbol::DataType::BOOL;
@@ -1252,16 +1245,14 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
                     "invalid data type of", 
                     std::string(boNode->getName()),
                     DiagnosticEngine::DiagType::ERROR, boNode);
-                break;
             }
-            if (boNode->right->node_data_type != Symbol::DataType::INT 
+            else if (boNode->right->node_data_type != Symbol::DataType::INT 
                 && boNode->right->node_data_type != Symbol::DataType::FLOAT
                 && boNode->right->node_data_type != Symbol::DataType::UNKNOWN) {
                 diags_.collect_diags(
                     "invalid data type of", 
                     std::string(boNode->getName()),
                     DiagnosticEngine::DiagType::ERROR, boNode);
-                break;
             }
             
             if (boNode->left->node_data_type == Symbol::DataType::FLOAT 
@@ -1284,9 +1275,8 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
                     "invalid data type of", 
                     std::string(boNode->getName()),
                     DiagnosticEngine::DiagType::ERROR, boNode);
-                break;
             }
-            if (boNode->right->node_data_type != Symbol::DataType::INT 
+            else if (boNode->right->node_data_type != Symbol::DataType::INT 
                 && boNode->right->node_data_type != Symbol::DataType::FLOAT
                 && boNode->right->node_data_type != Symbol::DataType::STRING
                 && boNode->right->node_data_type != Symbol::DataType::UNKNOWN) {
@@ -1294,7 +1284,6 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
                     "invalid data type of", 
                     std::string(boNode->getName()),
                     DiagnosticEngine::DiagType::ERROR, boNode);
-                break;
             }
 
             boNode->node_data_type = Symbol::DataType::STRING;
@@ -1310,16 +1299,14 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
                     "invalid data type of", 
                     std::string(boNode->getName()),
                     DiagnosticEngine::DiagType::ERROR, boNode);
-                break;
             }
-            if (boNode->right->node_data_type != Symbol::DataType::INT 
+            else if (boNode->right->node_data_type != Symbol::DataType::INT 
                 && boNode->right->node_data_type != Symbol::DataType::FLOAT
                 && boNode->right->node_data_type != Symbol::DataType::UNKNOWN) {
                 diags_.collect_diags(
                     "invalid data type of", 
                     std::string(boNode->getName()),
                     DiagnosticEngine::DiagType::ERROR, boNode);
-                break;
             }
 
             boNode->node_data_type = Symbol::DataType::FLOAT;

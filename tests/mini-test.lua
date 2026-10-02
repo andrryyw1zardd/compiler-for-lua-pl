@@ -113,3 +113,19 @@ end
 
 print("\n-- Recursion --")
 print("factorial(6) =", factorial(6))
+
+--------------------------------------------------------------------
+-- 10. Anonymous functions & higher-order functions
+--------------------------------------------------------------------
+local function map(t, f)
+    local result = {}
+    for i, v in ipairs(t) do
+        result[i] = f(v)
+    end
+    return result
+end
+
+print("\n-- Higher-order functions --")
+local squares = map({1, 2, 3, 4}, function(x) return x * x end)
+for _, v in ipairs(squares) do io.write(v .. " ") end
+print()
