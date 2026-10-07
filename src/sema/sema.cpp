@@ -235,7 +235,8 @@ void SemanticAnalyzer::initGlobalMethods() {
             .return_types_ = globalMethodRetTypes[i],
             .method_map_ = globalMethodNames[i],
             .is_used_ = false,
-            .node_ = nullptr };
+            .node_ = nullptr 
+        };
 
         scopes_.front()->add_into_symbols(globalIdentNames[i], symb);
     }
@@ -371,17 +372,84 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
     std::vector<Symbol::DataType> lDtVect;
 
     for (const auto& left: iNode->left_side) {
-        VariableNode* converted = dynamic_cast<VariableNode*>(left);
+        VariableNode* converted_variable = dynamic_cast<VariableNode*>(left);
+        ExprWithIndexNode* converted_with_index = dynamic_cast<ExprWithIndexNode*>(left);
+        MemberAccessNode* converted_member = dynamic_cast<MemberAccessNode*>(left);
+        std::string lName = "";
 
-        if (!converted) {
+        if (converted_variable) {
+            Node* current = converted_variable;
+
+            while (auto converted = dynamic_cast<MemberAccessNode*>(current)) {
+                // check the current
+                current = converted->value;
+            }
+
+            VariableNode* base = dynamic_cast<VariableNode*>(current);
+            if (!base) {
+                diags_.collect_diags(
+                    "access on non-indentifier expression", std::string(current->getName()),
+                    DiagnosticEngine::DiagType::ERROR, iNode);
+                return;
+            }
+
+            lName = std::get<std::string>(base->value.value);
+            lNameVect.push_back(lName);
+        }
+
+        else if (converted_with_index) {
+            Node* current = converted_with_index;
+
+            while (auto converted = dynamic_cast<MemberAccessNode*>(current)) {
+                // need to check the current
+                current = converted->value;
+            }
+
+            ExprWithIndexNode* base = dynamic_cast<ExprWithIndexNode*>(current);
+            if (!base) {
+                diags_.collect_diags(
+                    "access on non-indentifier expression", std::string(current->getName()),
+                    DiagnosticEngine::DiagType::ERROR, iNode);
+                return;
+            }
+
+            VariableNode* left_base = dynamic_cast<VariableNode*>(base->left);
+            if (!left_base) {
+                diags_.collect_diags(
+                    "access on non-indentifier expression", std::string(current->getName()),
+                    DiagnosticEngine::DiagType::ERROR, iNode);
+                return;
+            }
+
+            base->index_expr->accept(*this);
+
+            lName = std::get<std::string>(left_base->value.value);
+            lNameVect.push_back(lName);
+        }
+        else if (converted_member) {
+            Node* current = converted_member;
+
+            while (auto converted = dynamic_cast<MemberAccessNode*>(current)) {
+                current = converted->value;
+            }
+
+            VariableNode* base = dynamic_cast<VariableNode*>(current);
+            if (!base) {
+                diags_.collect_diags(
+                    "access on non-indentifier expression", std::string(current->getName()),
+                    DiagnosticEngine::DiagType::ERROR, iNode);
+                return;
+            }
+
+            lName = std::get<std::string>(base->value.value);
+            lNameVect.push_back(lName);
+        }
+        else {
             diags_.collect_diags(
                 "expected variable name but got", std::string(left->getName()),
                 DiagnosticEngine::DiagType::ERROR, left);
             continue;
         }
-
-        std::string lName = std::get<std::string>(converted->value.value);
-        lNameVect.push_back(lName);
 
         Symbol* symb = scopes_.back()->lookup(lName);
 
@@ -389,11 +457,13 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
             diags_.collect_diags(
                 "undefined identificator", lName,
                 DiagnosticEngine::DiagType::ERROR, left);
+            continue;
         }
         if (symb->have_const_attr_.value_or(false)) {
             diags_.collect_diags(
                 "variable with const attribute cant be modified. variable", lName,
                 DiagnosticEngine::DiagType::ERROR, left);
+            continue;
         }
     }
 
@@ -456,8 +526,10 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
         auto lSymb = scopes_.back()->lookup(lNameVect[i]);
 
         if (!lSymb) {
-            assert(lSymb && "symbol was just added but lookup returned nullptr");
+            // diags
+            continue;
         }
+        else if (lSymb->data_type_ == Symbol::DataType::TABLE) { continue; }
 
         if (lDtVect.size() > i) { lSymb->data_type_ = lDtVect[i]; }
         else lSymb->data_type_ = Symbol::DataType::NIL;
@@ -723,15 +795,21 @@ void SemanticAnalyzer::visit(ExprWithIndexNode* eNode) {
     symb->is_used_ = true;
     eNode->index_expr->accept(*this);
 
+    // also need BinaryOpNode
     std::variant<BasicDataNode*, VariableNode*> converted;
     BasicDataNode* converted_ind_bd = dynamic_cast<BasicDataNode*>(eNode->index_expr);
     VariableNode* converted_ind_var = dynamic_cast<VariableNode*>(eNode->index_expr);
+    BinaryOpNode* converted_ind_bo = dynamic_cast<BinaryOpNode*>(eNode->index_expr);
 
     if (converted_ind_bd) {
         converted = converted_ind_bd;
     }
     else if (converted_ind_var) {
         converted = converted_ind_var;
+    }
+    else if (converted_ind_bo) {
+        converted_ind_bo->accept(*this);
+        eNode->node_data_type = Symbol::DataType::UNKNOWN;
     }
     else {
         eNode->node_data_type = Symbol::DataType::UNKNOWN;
@@ -779,6 +857,7 @@ void SemanticAnalyzer::visit(ExprWithIndexNode* eNode) {
                 eNode->node_data_type = Symbol::DataType::UNKNOWN;
             }
             else { 
+                eNode->node_data_type = Symbol::DataType::UNKNOWN;
                 diags_.collect_diags(
                     "undefined index in table", name_left,
                     DiagnosticEngine::DiagType::ERROR, node
@@ -962,7 +1041,25 @@ void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
     }
 
     if (converted_into_mem) {
-        std::vector<std::string> qualifier_names {};
+        VariableNode* conv_value = dynamic_cast<VariableNode*>(converted_into_mem->value);
+        if (!conv_value) {
+            diags_.collect_diags(
+                    "undefined parent type",
+                    std::get<std::string>(conv_value->value.value),
+                    DiagnosticEngine::DiagType::ERROR, converted_into_mem);
+            return;
+        }
+
+        Symbol* parent_symbol = scopes_.back()->lookup(std::get<std::string>(conv_value->value.value));
+        if (!parent_symbol) {
+            diags_.collect_diags(
+                    "undefined parent object",
+                    std::get<std::string>(converted_into_mem->qualifier.value),
+                    DiagnosticEngine::DiagType::ERROR, converted_into_mem);
+            return;
+        }
+
+        std::vector<std::string> qualifier_names = std::vector<std::string>{};
         Node* current = converted_into_mem;
 
         while (auto converted = dynamic_cast<MemberAccessNode*>(current)) {
@@ -970,17 +1067,43 @@ void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
             current = converted->value;
         }
 
+        // qualifier check
+        for (size_t i = qualifier_names.size() - 1; i > 1; i--) {
+            auto qual_meth_iter = std::ranges::find(parent_symbol->method_map_.value(), qualifier_names[i]);
+            auto qual_var_iter = std::ranges::find(parent_symbol->variable_map_.value(), qualifier_names[i]);
+
+            if (qual_meth_iter != parent_symbol->method_map_->end() 
+                || qual_var_iter != parent_symbol->variable_map_->end()) 
+            { 
+                Symbol* symb = scopes_.back()->lookup(qualifier_names[i]);
+                if (!symb) {
+                    diags_.collect_diags(
+                            "undefined method/variable", qualifier_names[i],
+                            DiagnosticEngine::DiagType::ERROR, current);
+                    continue;
+                }
+
+                parent_symbol = symb;
+                continue;
+            }
+
+            diags_.collect_diags(
+                    "undefined method/variable", qualifier_names[i],
+                    DiagnosticEngine::DiagType::ERROR, current
+            );
+        }
+
         auto base = dynamic_cast<VariableNode*>(current);
         if (!base) {
             diags_.collect_diags(
                 "member access on non-indentifier expression", std::string(current->getName()),
-                DiagnosticEngine::DiagType::ERROR, converted_into_mem);
+                DiagnosticEngine::DiagType::ERROR, fcNode);
             return;
         }
 
         std::string base_name = std::get<std::string>(base->value.value);
-
         Symbol* symb = scopes_.back()->lookup(base_name);
+
         if (!symb) {
             diags_.collect_diags(
                 "undefined qualifier", base_name,
@@ -988,23 +1111,28 @@ void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
             return;
         }
 
-        std::string meth_name = qualifier_names[0];
-
-        auto meth_symb = scopes_.back()->lookup(meth_name);
-        if (!meth_symb) {
-            diags_.collect_diags(
-                    "undefined method", meth_name,
-                    DiagnosticEngine::DiagType::ERROR, converted_into_var);
-            return;
-        }
+        // its wrong, should try to find it in qualifier_names[1], 
+        // and should find qualifier_names[1] in qualifier_names[2] and so on 
+        // and also need to change initGlobalMethods..
+        // ..so the globals would have symbs and that symb would have name and return type in it
+        // it would make it easier to go through a.b.c.d()..
+        // ..cuz now we can easly get the b from a, c from b and so on.
+        //
+        // auto meth_symb = scopes_.back()->lookup(meth_name);
+        // if (!meth_symb) {
+        //     diags_.collect_diags(
+        //             "undefined method", meth_name,
+        //             DiagnosticEngine::DiagType::ERROR, base);
+        //     return;
+        // }
 
         for (size_t i = 0; i < symb->method_map_.value().size(); i++) {
             auto method = symb->method_map_.value()[i];
 
-            if (meth_name == method) {
-                fcNode->ret_data_types = *meth_symb->return_types_;
-                break;
-            }
+            // if (meth_name == method) {
+            //     fcNode->ret_data_types = *meth_symb->return_types_;
+            //     break;
+            // }
         }
 
         if (symb->return_types_->empty()) {

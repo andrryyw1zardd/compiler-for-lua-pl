@@ -1,6 +1,9 @@
 local a = 10
 local b, c = 20, "Hello"
 
+local obj = {field1}
+obj.field1 = 10
+
 print(a)
 
 function foo()
