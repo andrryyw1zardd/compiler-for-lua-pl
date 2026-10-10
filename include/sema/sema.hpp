@@ -42,8 +42,9 @@ struct Symbol {
     std::optional<std::unordered_map<std::variant<std::string, int>, Symbol::DataType>> element_types_ = std::nullopt;
 
     // for objects with variables or/and with methods
-    std::optional<std::vector<std::string>> variable_map_ = std::nullopt;
-    std::optional<std::vector<std::string>> method_map_ = std::nullopt;
+    std::optional<std::string> name_ = "";
+    std::optional<std::vector<Symbol>> variable_map_ = std::nullopt;
+    std::optional<std::vector<Symbol>> method_map_ = std::nullopt;
 
     bool is_used_ = false;
     Node* node_ = nullptr;
@@ -115,6 +116,9 @@ public:
  
     void print_diags();
     int diag_count();
+
+    Symbol* getChildSymbol(MemberAccessNode*);
+    Symbol* getSymbolFromNode(Node*);
 
     void makeScope();
     void removeScope();
