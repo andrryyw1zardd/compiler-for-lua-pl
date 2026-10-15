@@ -131,15 +131,6 @@ for _, v in ipairs(squares) do io.write(v .. " ") end
 print()
 
 --------------------------------------------------------------------
--- 11. Logical operators / ternary-style idiom
---------------------------------------------------------------------
-local a, b = 5, 10
-local max = (a > b) and a or b
-print("\n-- Ternary idiom --")
-print("max =", max)
-print("and/or:", true and "yes" or "no", false and "yes" or "no")
-
---------------------------------------------------------------------
 -- 12. Bitwise operators (Lua 5.3+)
 --------------------------------------------------------------------
 print("\n-- Bitwise operators --")

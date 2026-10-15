@@ -104,6 +104,11 @@ private:
     std::vector<std::variant<FunctionNode*, AnonFunctionNode*, MethodNode*>> func_scopes_;
     DiagnosticEngine& diags_;
 
+    // need to add the rest
+    // not only for these 2 vectors, but also for everything else too
+    std::vector<std::string_view> str_dt_basic_methods = {"lower"};
+    std::vector<std::string_view> table_dt_basic_variables = {"n"};
+
 public:
     SemanticAnalyzer(DiagnosticEngine& d) : diags_(d) { 
         scopes_.push_back(std::make_unique<Scope>(nullptr));

@@ -41,6 +41,131 @@ int SemanticAnalyzer::diag_count() {
     return diags_.get_diags()->size();
 }
 
+Symbol* SemanticAnalyzer::getChildSymbol(MemberAccessNode* node) {
+    Node* current = node;
+    std::vector<std::string> q_str_vec = std::vector<std::string>{};
+
+    while (auto converted = dynamic_cast<MemberAccessNode*>(current)) {
+        q_str_vec.push_back(std::get<std::string>(converted->qualifier.value));
+        current = converted->value;
+    }
+
+    auto base = dynamic_cast<VariableNode*>(current);
+    if (!base) {
+        diags_.collect_diags(
+                "unexpected identificator with data type of",
+                std::string(node->getName()),
+                DiagnosticEngine::DiagType::ERROR, current);
+        return nullptr;
+    }
+
+    Symbol* base_symb = scopes_.back()->lookup(std::get<std::string>(base->value.value));
+    if (!base_symb) {
+        diags_.collect_diags(
+                "use of undefined identificator",
+                std::get<std::string>(base->value.value),
+                DiagnosticEngine::DiagType::ERROR, base);
+        return nullptr;
+    }
+
+    Symbol* iter_symb = base_symb;
+    for (int i = q_str_vec.size()-1; i >= 0; i--) {
+        Symbol* child_symb = nullptr;
+
+        if (iter_symb->method_map_.has_value()) {
+            for (size_t j = 0; j < iter_symb->method_map_.value().size(); j++) {
+                if (q_str_vec[i] == iter_symb->method_map_.value()[j].name_) {
+                    child_symb = &iter_symb->method_map_.value()[j];
+                    break;
+                }
+            }
+        }
+
+        if (!child_symb) {
+            if (iter_symb->variable_map_.has_value()) {
+                for (size_t j = 0; j < iter_symb->variable_map_.value().size(); j++) {
+                    if (q_str_vec[i] == iter_symb->variable_map_.value()[j].name_) {
+                        child_symb = &iter_symb->variable_map_.value()[j];
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (child_symb) iter_symb = child_symb;
+        else {
+            diags_.collect_diags(
+                    "use of undefined identificator near",
+                    iter_symb->name_.value(),
+                    DiagnosticEngine::DiagType::ERROR, base);
+            return nullptr;
+        }
+    }
+
+    return iter_symb;
+}
+
+Symbol* SemanticAnalyzer::getSymbolFromNode(Node* node) {
+    VariableNode* node_variable = dynamic_cast<VariableNode*>(node);
+
+    if (node_variable) {
+        Symbol* symb = scopes_.back()->lookup(std::get<std::string>(node_variable->value.value));
+
+        if (!symb) {
+            diags_.collect_diags(
+                "undefined symb with data type of",
+                std::string(node->getName()),
+                DiagnosticEngine::DiagType::ERROR, node);
+            return nullptr;
+        }
+
+        if (symb->data_type_ == Symbol::DataType::STRING) {
+            if (symb->method_map_->empty()) { symb->method_map_.emplace(); }
+
+            for (auto& method_name: str_dt_basic_methods) {
+                Symbol method_symb = {
+                    .kind_ = Symbol::Kind::LOCAL,
+                    .data_type_ = Symbol::DataType::UNKNOWN,
+                    .name_ = std::string(method_name),
+                };
+
+                symb->method_map_.value().push_back(method_symb);
+            }
+        }
+
+        else if (symb->data_type_ == Symbol::DataType::TABLE) {
+            if (symb->variable_map_->empty()) { symb->variable_map_.emplace(); }
+
+            for (auto& var_name: table_dt_basic_variables) {
+                Symbol var_symb = {
+                    .kind_ = Symbol::Kind::LOCAL,
+                    .data_type_ = Symbol::DataType::UNKNOWN,
+                    .name_ = std::string(var_name),
+                };
+
+                symb->variable_map_.value().push_back(var_symb);
+            }
+        }
+
+        return symb;
+    }
+
+    MemberAccessNode* node_member = dynamic_cast<MemberAccessNode*>(node);
+
+    if (node_member) {
+        Symbol* symb = getChildSymbol(node_member);
+
+        if (!symb) { return nullptr; }
+        return symb;
+    }
+
+    diags_.collect_diags(
+            "undefined symb with data type of",
+            std::string(node->getName()),
+            DiagnosticEngine::DiagType::ERROR, node);
+    return nullptr;
+}
+
 Symbol* Scope::lookup(const std::string& name) {
     auto itValue = variables_.find(name);
 
@@ -641,63 +766,37 @@ void SemanticAnalyzer::visit(UnaryOpNode* uoNode) {
 }
 
 void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
-    maNode->value->accept(*this);
+    Symbol* symb = getSymbolFromNode(maNode->value);
+    if (!symb) { return; }
 
-    if (!maNode->value->node_data_type) {
-        maNode->node_data_type = Symbol::DataType::UNKNOWN;
-        return;
-    }
-
-    if (*maNode->value->node_data_type != Symbol::DataType::TABLE) {
+    if (!symb->variable_map_.has_value()) {
         diags_.collect_diags(
-                "invalid data type when", std::string(maNode->getName()),
+                "use of undefined indentificator", 
+                std::get<std::string>(maNode->qualifier.value),
                 DiagnosticEngine::DiagType::ERROR, maNode);
-
-        *maNode->node_data_type = Symbol::DataType::UNKNOWN;
         return;
     }
 
-    std::vector<std::string> qualifiers {};
-    Node* current = maNode;
+    Symbol* qual = nullptr;
+    std::string qual_name = std::get<std::string>(maNode->qualifier.value);
 
-    while (auto converted = dynamic_cast<MemberAccessNode*>(current)) {
-        qualifiers.push_back(std::get<std::string>(converted->qualifier.value));
-        current = converted->value;
-    }
-
-    auto base = dynamic_cast<VariableNode*>(current);
-    if (!base) {
-        diags_.collect_diags(
-            "member access on non-indentifier expression", std::string(current->getName()),
-            DiagnosticEngine::DiagType::ERROR, maNode);
-        return;
-    }
-
-    std::string base_name = std::get<std::string>(base->value.value);
-
-    Symbol* symb = scopes_.back()->lookup(base_name);
-    if (!symb) {
-        diags_.collect_diags(
-            "undefined qualifier", base_name,
-            DiagnosticEngine::DiagType::ERROR, maNode);
-        return;
-    }
-
-    symb->is_used_ = true;
-    symb->data_type_ = base->node_data_type.value();
-
-    for (const auto& q: qualifiers) { 
-        auto qual = symb->element_types_.value().find(q);
-
-        if (qual == symb->element_types_->end()) {
-            diags_.collect_diags(
-                "undefined qualifier", q,
-                DiagnosticEngine::DiagType::ERROR, maNode);
-            return;
+    for (auto& name: symb->variable_map_.value()) {
+        if (qual_name == name.name_) {
+            qual = &name;
+            break;
         }
     }
 
-    maNode->node_data_type = symb->element_types_.value()[qualifiers[0]];
+    if (!qual) {
+        diags_.collect_diags(
+               "use of undefined indentificator", qual_name,
+                DiagnosticEngine::DiagType::ERROR, maNode);
+
+        maNode->node_data_type = Symbol::DataType::NIL;
+        return;
+    }
+
+    maNode->node_data_type = qual->data_type_;
 }
 
 void SemanticAnalyzer::visit(EllipsisNode* eNode) {
@@ -1025,103 +1124,6 @@ void SemanticAnalyzer::visit(AnonFunctionNode* afNode) {
     removeFuncScope();
 }
 
-Symbol* SemanticAnalyzer::getSymbolFromNode(Node* node) {
-    VariableNode* node_variable = dynamic_cast<VariableNode*>(node);
-
-    if (node_variable) {
-        Symbol* symb = scopes_.back()->lookup(std::get<std::string>(node_variable->value.value));
-
-        if (!symb) {
-            diags_.collect_diags(
-                    "undefined symb with data type of",
-                    std::string(node->getName()),
-                    DiagnosticEngine::DiagType::ERROR, node);
-            return nullptr;
-        }
-
-        return symb;
-    }
-
-    MemberAccessNode* node_member = dynamic_cast<MemberAccessNode*>(node);
-
-    if (node_member) {
-        Symbol* symb = getChildSymbol(node_member);
-
-        if (!symb) { return nullptr; }
-        return symb;
-    }
-
-    diags_.collect_diags(
-            "undefined symb with data type of",
-            std::string(node->getName()),
-            DiagnosticEngine::DiagType::ERROR, node);
-    return nullptr;
-}
-
-Symbol* SemanticAnalyzer::getChildSymbol(MemberAccessNode* node) {
-    Node* current = node;
-    std::vector<std::string> q_str_vec = std::vector<std::string>{};
-
-    while (auto converted = dynamic_cast<MemberAccessNode*>(current)) {
-        q_str_vec.push_back(std::get<std::string>(converted->qualifier.value));
-        current = converted->value;
-    }
-
-    auto base = dynamic_cast<VariableNode*>(current);
-    if (!base) {
-        diags_.collect_diags(
-                "unexpected identificator with data type of",
-                std::string(node->getName()),
-                DiagnosticEngine::DiagType::ERROR, current);
-        return nullptr;
-    }
-
-    Symbol* base_symb = scopes_.back()->lookup(std::get<std::string>(base->value.value));
-    if (!base_symb) {
-        diags_.collect_diags(
-                "use of undefined identificator",
-                std::get<std::string>(base->value.value),
-                DiagnosticEngine::DiagType::ERROR, base);
-        return nullptr;
-    }
-
-    Symbol* iter_symb = base_symb;
-    for (int i = q_str_vec.size()-1; i >= 0; i--) {
-        Symbol* child_symb = nullptr;
-
-        if (iter_symb->method_map_.has_value()) {
-            for (size_t j = 0; j < iter_symb->method_map_.value().size(); j++) {
-                if (q_str_vec[i] == iter_symb->method_map_.value()[j].name_) {
-                    child_symb = &iter_symb->method_map_.value()[j];
-                    break;
-                }
-            }
-        }
-
-        if (!child_symb) {
-            if (iter_symb->variable_map_.has_value()) {
-                for (size_t j = 0; j < iter_symb->variable_map_.value().size(); j++) {
-                    if (q_str_vec[i] == iter_symb->variable_map_.value()[j].name_) {
-                        child_symb = &iter_symb->variable_map_.value()[j];
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (child_symb) iter_symb = child_symb;
-        else {
-            diags_.collect_diags(
-                    "use of undefined identificator near",
-                    iter_symb->name_.value(),
-                    DiagnosticEngine::DiagType::ERROR, base);
-            return nullptr;
-        }
-    }
-
-    return iter_symb;
-}
-
 void SemanticAnalyzer::visit(FunctionCallNode* fcNode) {
     for (const auto& a: fcNode->args) {
         a->accept(*this);
@@ -1149,7 +1151,8 @@ void SemanticAnalyzer::visit(MethodCallNode* mcNode) {
 
     if (!symb->method_map_.has_value()) {
         diags_.collect_diags(
-                "use of undefined method", symb->name_.value(),
+                "use of undefined method", 
+                std::get<std::string>(mcNode->method_name.value),
                 DiagnosticEngine::DiagType::ERROR, mcNode);
         return;
     }
@@ -1166,7 +1169,8 @@ void SemanticAnalyzer::visit(MethodCallNode* mcNode) {
 
     if (!method) {
         diags_.collect_diags(
-                "use of undefined method", symb->name_.value(),
+                "use of undefined method", 
+                std::get<std::string>(mcNode->method_name.value),
                 DiagnosticEngine::DiagType::ERROR, mcNode);
 
         mcNode->node_data_type = Symbol::DataType::NIL;
@@ -1298,6 +1302,7 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
         case Type::DOUBLE_SLASH:
             if (boNode->left->node_data_type != Symbol::DataType::INT 
                 && boNode->left->node_data_type != Symbol::DataType::FLOAT
+                && boNode->left->node_data_type != Symbol::DataType::STRING
                 && boNode->left->node_data_type != Symbol::DataType::UNKNOWN) {
                 diags_.collect_diags(
                     "invalid data type of", 
@@ -1306,6 +1311,7 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
             }
             else if (boNode->right->node_data_type != Symbol::DataType::INT 
                 && boNode->right->node_data_type != Symbol::DataType::FLOAT
+                && boNode->right->node_data_type != Symbol::DataType::STRING
                 && boNode->right->node_data_type != Symbol::DataType::UNKNOWN) {
                 diags_.collect_diags(
                     "invalid data type of", 
@@ -1338,6 +1344,8 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
                 && boNode->right->node_data_type != Symbol::DataType::FLOAT
                 && boNode->right->node_data_type != Symbol::DataType::STRING
                 && boNode->right->node_data_type != Symbol::DataType::UNKNOWN) {
+
+                std::cout << "Worked on (2)\n";
                 diags_.collect_diags(
                     "invalid data type of", 
                     std::string(boNode->getName()),
@@ -1494,17 +1502,31 @@ void SemanticAnalyzer::visit(RepeatUntilNode* ruNode) {
 }
 
 void SemanticAnalyzer::visit(NumericForNode* nfNode) { 
-    nfNode->start->accept(*this);
-    nfNode->finish->accept(*this);
+    makeScope();
+    std::string iter_variable_name = std::get<std::string>(nfNode->var.value);
+    Symbol iter_variable_symb = {
+        .kind_ = Symbol::Kind::GLOBAL,
+        .data_type_ = Symbol::DataType::UNKNOWN,
+        .is_used_ = true, 
+        .node_ = nfNode->start
+    };
 
-    for (const auto& iter: nfNode->body) { iter->accept(*this); }
+    scopes_.back()->add_into_symbols(iter_variable_name, iter_variable_symb);
+
+    nfNode->start->accept(*this);
+    nfNode->step->accept(*this);
+    nfNode->finish->accept(*this);
 
     if (nfNode->finish->node_data_type != Symbol::DataType::BOOL) {
         diags_.collect_diags(
                 "invalid for statement", 
                 "finish block (the one between first and second ;) should be boolean",
                 DiagnosticEngine::DiagType::ERROR, nfNode);
+        return;
     }
+
+    for (const auto& iter: nfNode->body) { iter->accept(*this); }
+    removeScope();
 }
 
 void SemanticAnalyzer::visit(GenericForNode* gfNode) { 
@@ -1524,8 +1546,6 @@ void SemanticAnalyzer::visit(GenericForNode* gfNode) {
         }
 
         for (size_t i = 0; i < gfNode->keyArgs.size(); ++i) {
-            gfNode->keyArgs[i]->accept(*this);
-
             VariableNode* converted_key = dynamic_cast<VariableNode*>(gfNode->keyArgs[i]);
             if (!converted_key) {
                 diags_.collect_diags(
@@ -1536,9 +1556,10 @@ void SemanticAnalyzer::visit(GenericForNode* gfNode) {
             }
 
             std::string name_key = std::get<std::string>(converted_key->value.value);
+
             Symbol symb = Symbol {
                 .kind_ = Symbol::Kind::LOCAL,
-                .data_type_ = converted_fn->ret_data_types.value()[i],
+                .data_type_ = Symbol::DataType::UNKNOWN,
                 .is_used_ = false,
                 .node_ = converted_key
             };
@@ -1558,8 +1579,6 @@ void SemanticAnalyzer::visit(GenericForNode* gfNode) {
         }
 
         for (size_t i = 0; i < gfNode->keyArgs.size(); ++i) {
-            gfNode->keyArgs[i]->accept(*this);
-
             VariableNode* converted_key = dynamic_cast<VariableNode*>(gfNode->keyArgs[i]);
             if (!converted_key) {
                 diags_.collect_diags(
@@ -1572,7 +1591,7 @@ void SemanticAnalyzer::visit(GenericForNode* gfNode) {
             std::string name_key = std::get<std::string>(converted_key->value.value);
             Symbol symb = Symbol {
                 .kind_ = Symbol::Kind::LOCAL,
-                .data_type_ = converted_fn->ret_data_types.value()[i],
+                .data_type_ = Symbol::DataType::UNKNOWN,
                 .is_used_ = false,
                 .node_ = converted_key
             };

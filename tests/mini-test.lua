@@ -132,3 +132,86 @@ print("\n-- Higher-order functions --")
 local squares = map({1, 2, 3, 4}, function(x) return x * x end)
 for _, v in ipairs(squares) do io.write(v .. " ") end
 print()
+
+-- new
+--------------------------------------------------------------------
+-- 12. Bitwise operators (Lua 5.3+)
+--------------------------------------------------------------------
+print("\n-- Bitwise operators --")
+print("5 & 3 =", 5 & 3)
+print("5 | 2 =", 5 | 2)
+print("5 ~ 1 =", 5 ~ 1)   -- xor
+print("~5 =", ~5)          -- bitwise not
+print("1 << 4 =", 1 << 4)
+print("256 >> 4 =", 256 >> 4)
+
+--------------------------------------------------------------------
+-- 13. Integer division and modulo
+--------------------------------------------------------------------
+print("\n-- Integer division / modulo --")
+print("7 // 2 =", "7" // 2)
+print("7.0 // 2 =", 7.0 // 2)
+print("7 % 2 =", 7 % 2)
+print("-7 % 3 =", -7 % 3)
+
+--------------------------------------------------------------------
+-- 14. String library & pattern matching
+--------------------------------------------------------------------
+print("\n-- String library --")
+local s = "Hello, Lua World!"
+print(string.upper(s))
+print(s:lower())                    -- method-call syntax
+print(string.sub(s, 1, 5))
+print(string.len(s), #s)
+print(string.rep("ab", 3))
+print(string.format("Pi is %.2f, name=%s, n=%d", 3.14159, "Lua", 42))
+print(string.find(s, "Lua"))
+print(string.match(s, "%a+, (%a+)"))
+print((string.gsub(s, "o", "0")))
+
+print("\n-- gmatch iterator --")
+for word in string.gmatch("the quick brown fox", "%a+") do
+    io.write(word .. "|")
+end
+print()
+
+--------------------------------------------------------------------
+-- 15. Table library
+--------------------------------------------------------------------
+print("\n-- Table library --")
+local t = {5, 3, 8, 1, 9}
+table.insert(t, 100)
+table.insert(t, 1, -1)
+table.remove(t, 2)
+table.sort(t)
+print("sorted:", table.concat(t, ", "))
+
+table.sort(t, function(x, y) return x > y end)
+print("sorted desc:", table.concat(t, ", "))
+--
+local packed = table.pack(1, 2, 3)
+print("packed.n =", packed.n)
+print("unpack:", table.unpack({10, 20, 30}))
+
+--------------------------------------------------------------------
+-- 16. Mixed table constructors (array + hash + computed keys)
+--------------------------------------------------------------------
+local mixed = {
+    "first",
+    "second",
+    name = "mixed table",
+    [10] = "explicit index 10",
+    ["computed " .. "key"] = true,
+    nested = { a = 1, b = { c = 2 } },
+}
+print("\n-- Mixed table constructor --")
+print(mixed[1], mixed[2], mixed.name, mixed[10])
+print(mixed["computed key"], mixed.nested.b.c)
+
+--------------------------------------------------------------------
+-- 17. Multiple assignment & swapping
+--------------------------------------------------------------------
+print("\n-- Multiple assignment --")
+local x, y, z = 1, 2, 3
+x, y = y, x
+print(x, y, z)
