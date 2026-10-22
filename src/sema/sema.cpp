@@ -5,6 +5,32 @@
 #include <utility>
 #include <iostream>
 
+Scope* Scope::get_parent() {
+    return this->parent_;
+}
+
+bool Scope::has_locally(const std::string& name) const {
+    return variables_.find(name) != variables_.end();
+}
+
+void Scope::add_into_symbols(const std::string& name, const Symbol& symbol) {
+    variables_[name] = symbol;
+}
+
+Symbol* Scope::lookup(const std::string& name) {
+    auto itValue = variables_.find(name);
+
+    if (itValue != variables_.end()) {
+        return &itValue->second;
+    }
+
+    if (parent_) {
+        return parent_->lookup(name); 
+    }
+
+    return nullptr;
+}
+
 void SemanticAnalyzer::makeScope() {
     auto scope = std::make_unique<Scope>(scopes_.back().get());
     scopes_.push_back(std::move(scope));
@@ -17,18 +43,6 @@ void SemanticAnalyzer::removeScope() {
 
 Scope* SemanticAnalyzer::currentScope() {
     return scopes_.back().get();
-}
-
-void Scope::add_into_symbols(const std::string& name, const Symbol& symbol) {
-    variables_[name] = symbol;
-}
-
-bool Scope::has_locally(const std::string& name) const {
-    return variables_.find(name) != variables_.end();
-}
-
-Scope* Scope::get_parent() {
-    return this->parent_;
 }
 
 void SemanticAnalyzer::print_diags() {
@@ -135,8 +149,8 @@ Symbol* SemanticAnalyzer::getSymbolFromNode(Node* node) {
 
         if (!symb) {
             diags_.collect_diags(
-                "undefined symb with data type of",
-                std::string(node->getName()),
+                "undefined identificator with name",
+                std::get<std::string>(node_variable->value.value),
                 DiagnosticEngine::DiagType::ERROR, node);
             return nullptr;
         }
@@ -179,20 +193,6 @@ Symbol* SemanticAnalyzer::getSymbolFromNode(Node* node) {
             "undefined symb with data type of",
             std::string(node->getName()),
             DiagnosticEngine::DiagType::ERROR, node);
-    return nullptr;
-}
-
-Symbol* Scope::lookup(const std::string& name) {
-    auto itValue = variables_.find(name);
-
-    if (itValue != variables_.end()) {
-        return &itValue->second;
-    }
-
-    if (parent_) {
-        return parent_->lookup(name); 
-    }
-
     return nullptr;
 }
 
@@ -272,10 +272,10 @@ std::vector<std::string>* DiagnosticEngine::get_diags() {
 }
 
 void SemanticAnalyzer::initGlobalFunctions() {
-    std::array<std::string, 10> globalFuncNames {
+    std::array<std::string, 12> globalFuncNames {
         "print", "type", "tostring", "tonumber",
         "error", "assert", "select", "next",
-        "pairs", "ipairs"
+        "pairs", "ipairs", "pcall", "xpcall"
     };
 
     std::vector<std::vector<Symbol::DataType>> globalFuncRetTypes {
@@ -288,8 +288,10 @@ void SemanticAnalyzer::initGlobalFunctions() {
         std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN}, // select (it returns its own args, 0 or more)
         std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN, Symbol::DataType::UNKNOWN}, // next (key, value)
         std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN}, // pairs (can return iter, table or nil, so just UNKNOWN)
-        std::vector<Symbol::DataType>{ Symbol::DataType::UNKNOWN,
-            Symbol::DataType::UNKNOWN, Symbol::DataType::UNKNOWN} // ipairs (same as pairs just 0 instead of nil)
+        std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN,
+            Symbol::DataType::UNKNOWN, Symbol::DataType::UNKNOWN}, // ipairs (same as pairs just 0 instead of nil)
+        std::vector<Symbol::DataType>{Symbol::DataType::BOOL, Symbol::DataType::UNKNOWN}, // pcall
+        std::vector<Symbol::DataType>{Symbol::DataType::BOOL, Symbol::DataType::UNKNOWN}, // xpcall
     };
 
     for (size_t i = 0; i < globalFuncRetTypes.size(); ++i) {

@@ -212,3 +212,27 @@ print("\n-- Multiple assignment --")
 local x, y, z = 1, 2, 3
 x, y = y, x
 print(x, y, z)
+
+-- just add these functions into basic function vector lil bro
+--------------------------------------------------------------------
+-- 18. Error handling: pcall, xpcall, error, assert
+--------------------------------------------------------------------
+print("\n-- Error handling --")
+local ok, err = pcall(function() error("something went wrong") end)
+print("pcall result:", ok, err)
+
+local ok2, result = pcall(function() return 10 / 0 end)
+print("division:", ok2, result)
+
+local function mayFail(x)
+    assert(type(x) == "number", "x must be a number")
+    return x * 2
+end
+local ok3, err3 = pcall(mayFail, "not a number")
+print("assert failure:", ok3, err3)
+
+local function handler(e)
+    return "handled: " .. tostring(e)
+end
+local ok4, res4 = xpcall(function() error("boom") end, handler)
+print("xpcall:", ok4, res4)
