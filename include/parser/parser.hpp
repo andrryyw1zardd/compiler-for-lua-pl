@@ -200,6 +200,7 @@ struct OrTernaryNode : Node {
 struct ArrayNode : Node {
     std::vector<Node*, ArenaAllocator<Node*>> elements;
     std::optional<std::unordered_map<std::variant<std::string, int>, Symbol::DataType>> element_types = std::nullopt;
+    std::optional<std::vector<Symbol>> symbols_vector = std::nullopt;
 
     ArrayNode(std::vector<Node*, ArenaAllocator<Node*>> e) : elements(std::move(e)) { }
 
@@ -488,6 +489,10 @@ private:
     std::vector<Token> listOfTokens;
     unsigned long long index = 0;
 
+    std::vector<std::string> parser_diag_vect;
+
+    static constexpr Token eof {.type = Type::END_OF_FILE};
+
     static constexpr Type endblockArray[5] = {Type::KW_END, Type::KW_ELSE,
                           Type::KW_ELSEIF, Type::KW_UNTIL,
                           Type::END_OF_FILE};
@@ -510,6 +515,7 @@ private:
         "'end of file'",
         "'ERROR'",
     };
+
 
     static constexpr std::array<Type, 5> UnaryOpSet = {
         Type::MINUS, Type::PLUS, Type::HASH, Type::KW_NOT, Type::TILDE
@@ -544,8 +550,6 @@ private:
     Node* parse_function(bool isLocal);
     Node* parse_ident();
     Node* parse_method(Token className, bool isLocal); 
-
-    std::vector<std::string> parser_diag_vect;
 
 public:
     void print_diags();

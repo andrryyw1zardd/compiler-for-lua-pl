@@ -1,21 +1,22 @@
-local a = 10
-local b, c = 20, "Hello"
+-- Extended Lua Syntax Examples
+-- Covers constructs NOT present in the original test.lua
 
-local obj = {field1}
-obj.field1 = 10
+--------------------------------------------------------------------
+-- 1. Comments
+--------------------------------------------------------------------
+-- single line comment
+--[[
+  multi-line (long) comment
+  spans several lines
+]]
+--[==[
+--[===[ ]===]
+  long comment with a custom level (in case ]] appears inside)
+]==]
 
-print(a)
-
-function foo()
-  print(b, c)
-end
-
-if (b > a) then 
-  print(b)
-else 
-  print(a)
-end
-
+--------------------------------------------------------------------
+-- 2. Numeric literals
+--------------------------------------------------------------------
 local intLit       = 42
 local floatLit     = 3.14
 local hexLit       = 0xFF
@@ -31,13 +32,15 @@ local sci8         = 1.5E-10
 local sci9         = 0.5e2
 local sci10        = 314.159e-2
 local negLit       = -7
-local Vector = {}
 
 print("\n-- Numeric literals --")
 print(intLit, floatLit, hexLit, hexFloat, sciLit, negLit)
 print("math.type(intLit) =", math.type(intLit))
 print("math.type(floatLit) =", math.type(floatLit))
 
+--------------------------------------------------------------------
+-- 3. String literals & escapes
+--------------------------------------------------------------------
 local singleQuoted = 'single quoted'
 local doubleQuoted = "double\tquoted\nwith escapes"
 local longString = [[
@@ -52,12 +55,6 @@ print(singleQuoted)
 print(doubleQuoted)
 print(longString)
 print(longStringLevel)
-
-function Vector:new(x, y)
-    return x + y 
-end
-
-local res = Vector:new(1, 2)
 
 --------------------------------------------------------------------
 -- 4. repeat / until
@@ -133,7 +130,6 @@ local squares = map({1, 2, 3, 4}, function(x) return x * x end)
 for _, v in ipairs(squares) do io.write(v .. " ") end
 print()
 
--- new
 --------------------------------------------------------------------
 -- 12. Bitwise operators (Lua 5.3+)
 --------------------------------------------------------------------
@@ -188,8 +184,9 @@ print("sorted:", table.concat(t, ", "))
 
 table.sort(t, function(x, y) return x > y end)
 print("sorted desc:", table.concat(t, ", "))
---
-local packed = table.pack(1, 2, 3)
+
+-- local packed = table.pack(1, 2, 3)
+local packed = {1,2,3}
 print("packed.n =", packed.n)
 print("unpack:", table.unpack({10, 20, 30}))
 

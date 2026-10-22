@@ -59,7 +59,8 @@ Symbol* SemanticAnalyzer::getChildSymbol(MemberAccessNode* node) {
         return nullptr;
     }
 
-    Symbol* base_symb = scopes_.back()->lookup(std::get<std::string>(base->value.value));
+    std::string base_name = std::get<std::string>(base->value.value);
+    Symbol* base_symb = scopes_.back()->lookup(base_name);
     if (!base_symb) {
         diags_.collect_diags(
                 "use of undefined identificator",
@@ -69,6 +70,7 @@ Symbol* SemanticAnalyzer::getChildSymbol(MemberAccessNode* node) {
     }
 
     Symbol* iter_symb = base_symb;
+
     for (int i = q_str_vec.size()-1; i >= 0; i--) {
         Symbol* child_symb = nullptr;
 
@@ -92,11 +94,31 @@ Symbol* SemanticAnalyzer::getChildSymbol(MemberAccessNode* node) {
             }
         }
 
+        if (!child_symb) {
+            if (iter_symb->element_types_.has_value()) {
+                bool contains_qual = iter_symb->element_types_.value().contains(q_str_vec[i]);
+
+                if (contains_qual) {
+                    Symbol inner_symb = {
+                        .kind_ = Symbol::Kind::UPVALUE,
+                        .data_type_ = iter_symb->element_types_.value()[q_str_vec[i]],
+                        .name_ = q_str_vec[i]
+                    };
+
+                    if (!iter_symb->variable_map_.has_value()) {
+                        iter_symb->variable_map_ = std::vector<Symbol>{};
+                    }
+
+                    iter_symb->variable_map_->push_back(inner_symb);
+                    child_symb = &iter_symb->variable_map_->back();
+                }
+            }
+        }
+
         if (child_symb) iter_symb = child_symb;
         else {
             diags_.collect_diags(
-                    "use of undefined identificator near",
-                    iter_symb->name_.value(),
+                    "use of undefined qualifier of", base_name,
                     DiagnosticEngine::DiagType::ERROR, base);
             return nullptr;
         }
@@ -134,16 +156,10 @@ Symbol* SemanticAnalyzer::getSymbolFromNode(Node* node) {
         }
 
         else if (symb->data_type_ == Symbol::DataType::TABLE) {
-            if (symb->variable_map_->empty()) { symb->variable_map_.emplace(); }
+            if (symb->element_types_->empty()) { symb->element_types_.emplace(); }
 
             for (auto& var_name: table_dt_basic_variables) {
-                Symbol var_symb = {
-                    .kind_ = Symbol::Kind::LOCAL,
-                    .data_type_ = Symbol::DataType::UNKNOWN,
-                    .name_ = std::string(var_name),
-                };
-
-                symb->variable_map_.value().push_back(var_symb);
+                symb->element_types_.value()[std::string(var_name)] = Symbol::DataType::UNKNOWN;
             }
         }
 
@@ -466,6 +482,7 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
                 }
 
                 symb->element_types_ = converted_arr->element_types;
+                symb->variable_map_ = converted_arr->symbols_vector;
             }
 
             lDtVect.push_back(Symbol::DataType::TABLE);
@@ -637,6 +654,7 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
                 }
 
                 symb->element_types_ = converted_arr->element_types;
+                symb->variable_map_ = converted_arr->symbols_vector;
             }
 
             lDtVect.push_back(Symbol::DataType::TABLE);
@@ -769,16 +787,41 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
     Symbol* symb = getSymbolFromNode(maNode->value);
     if (!symb) { return; }
 
-    if (!symb->variable_map_.has_value()) {
-        diags_.collect_diags(
-                "use of undefined indentificator", 
-                std::get<std::string>(maNode->qualifier.value),
-                DiagnosticEngine::DiagType::ERROR, maNode);
+    if (symb->data_type_ == Symbol::DataType::TABLE) {
+        std::string qual_name = std::get<std::string>(maNode->qualifier.value);
+
+        if (!symb->element_types_.has_value()) {
+            diags_.collect_diags(
+                    "use of undefined qualifier", qual_name,
+                    DiagnosticEngine::DiagType::ERROR, maNode);
+            return;
+        }
+
+        bool contains_qual = symb->element_types_->contains(qual_name);
+
+        if (!contains_qual) {
+            diags_.collect_diags(
+                    "use of undefined qualifier", qual_name,
+                    DiagnosticEngine::DiagType::ERROR, maNode);
+            return;
+        }
+
+        Symbol::DataType type = symb->element_types_->find(qual_name)->second;
+        maNode->node_data_type = type;
+
         return;
     }
 
     Symbol* qual = nullptr;
     std::string qual_name = std::get<std::string>(maNode->qualifier.value);
+
+    if (!symb->variable_map_.has_value()) {
+        diags_.collect_diags(
+                "use of undefined qualifier", 
+                std::get<std::string>(maNode->qualifier.value),
+                DiagnosticEngine::DiagType::ERROR, maNode);
+        return;
+    }
 
     for (auto& name: symb->variable_map_.value()) {
         if (qual_name == name.name_) {
@@ -789,7 +832,7 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
 
     if (!qual) {
         diags_.collect_diags(
-               "use of undefined indentificator", qual_name,
+               "use of undefined qualifier", qual_name,
                 DiagnosticEngine::DiagType::ERROR, maNode);
 
         maNode->node_data_type = Symbol::DataType::NIL;
@@ -805,6 +848,8 @@ void SemanticAnalyzer::visit(EllipsisNode* eNode) {
 
 void SemanticAnalyzer::visit(ArrayNode* aNode) {
     std::optional<std::unordered_map<std::variant<std::string, int>, Symbol::DataType>> element_table;
+    std::optional<std::vector<Symbol>> nasted_symbols = std::vector<Symbol>{};
+
     element_table.emplace();
     int index = 1;
 
@@ -847,11 +892,27 @@ void SemanticAnalyzer::visit(ArrayNode* aNode) {
 
             else if (el_key_converted_var) {
                 std::string key_name = std::get<std::string>(el_key_converted_var->value.value);
-                
+
                 if (el_converted->value->node_data_type.has_value()) {
                     element_table.value()[key_name] = *el_converted->value->node_data_type;
                 }
-                else element_table.value()[key_name] = Symbol::DataType::UNKNOWN;
+                else {
+                    element_table.value()[key_name] = Symbol::DataType::UNKNOWN;
+                }
+
+                nasted_symbols.value().push_back(
+                    Symbol {
+                        .kind_ = Symbol::Kind::LOCAL,
+                        .data_type_ = element_table.value()[key_name],
+                        .name_ = key_name,
+                        .node_ = el_converted->value
+                    }
+                );
+
+                if (auto* nasted_arr = dynamic_cast<ArrayNode*>(el_converted->value)) {
+                    nasted_symbols->back().element_types_ = nasted_arr->element_types;
+                    nasted_symbols->back().variable_map_ = nasted_arr->symbols_vector;
+                }
             }
 
             else {
@@ -872,6 +933,7 @@ void SemanticAnalyzer::visit(ArrayNode* aNode) {
 
     aNode->node_data_type = Symbol::DataType::TABLE;
     aNode->element_types = element_table;
+    aNode->symbols_vector = nasted_symbols;
 }
 
 void SemanticAnalyzer::visit(TableFieldNode* tfNode) {
@@ -909,77 +971,72 @@ void SemanticAnalyzer::visit(ExprWithIndexNode* eNode) {
     symb->is_used_ = true;
     eNode->index_expr->accept(*this);
 
-    // also need BinaryOpNode
-    std::variant<BasicDataNode*, VariableNode*> converted;
     BasicDataNode* converted_ind_bd = dynamic_cast<BasicDataNode*>(eNode->index_expr);
     VariableNode* converted_ind_var = dynamic_cast<VariableNode*>(eNode->index_expr);
     BinaryOpNode* converted_ind_bo = dynamic_cast<BinaryOpNode*>(eNode->index_expr);
 
     if (converted_ind_bd) {
-        converted = converted_ind_bd;
-    }
-    else if (converted_ind_var) {
-        converted = converted_ind_var;
+        converted_ind_bd->accept(*this);
+        eNode->node_data_type = Symbol::DataType::UNKNOWN;
+        return;
     }
     else if (converted_ind_bo) {
         converted_ind_bo->accept(*this);
         eNode->node_data_type = Symbol::DataType::UNKNOWN;
+        return;
     }
     else {
         eNode->node_data_type = Symbol::DataType::UNKNOWN;
         return;
     }
 
-    std::visit(
-        [&](auto* node){
-            if (node->value.type == Type::LIT_INT 
-                || node->value.type == Type::LIT_HEX) 
-            {
-                auto value = std::get<int>(node->value.value);
-                auto data_type = symb->element_types_.value().find(value);
+    if (converted_ind_var) {
+        if (converted_ind_var->value.type == Type::LIT_INT 
+            || converted_ind_var->value.type == Type::LIT_HEX) 
+        {
+            auto value = std::get<int>(converted_ind_var->value.value);
+            auto data_type = symb->element_types_.value().find(value);
 
-                if (data_type != symb->element_types_.value().end()) {
-                    eNode->node_data_type = data_type->second;
-                }
-                else {
-                    eNode->node_data_type = Symbol::DataType::UNKNOWN;
-                    diags_.collect_diags(
-                        "undefined index in table", name_left,
-                        DiagnosticEngine::DiagType::ERROR, node
-                    );
-                }
+            if (data_type != symb->element_types_.value().end()) {
+                eNode->node_data_type = data_type->second;
             }
-            else if (node->value.type == Type::LIT_STRING 
-                || node->value.type == Type::LIT_CHAR 
-                || node->value.type == Type::LIT_LONG_STRING) 
-            {
-                auto value = std::get<std::string>(node->value.value);
-                auto data_type = symb->element_types_.value().find(value);
-
-                if (data_type != symb->element_types_.value().end()) {
-                    eNode->node_data_type = data_type->second;
-                }
-                else {
-                    eNode->node_data_type = Symbol::DataType::UNKNOWN;
-                    diags_.collect_diags(
-                        "undefined index in table", name_left,
-                        DiagnosticEngine::DiagType::ERROR, node
-                    );
-                }
-            }
-            else if (node->value.type == Type::IDENT) {
-                eNode->node_data_type = Symbol::DataType::UNKNOWN;
-            }
-            else { 
+            else {
                 eNode->node_data_type = Symbol::DataType::UNKNOWN;
                 diags_.collect_diags(
                     "undefined index in table", name_left,
-                    DiagnosticEngine::DiagType::ERROR, node
+                    DiagnosticEngine::DiagType::ERROR, eNode   
                 );
             }
-        },
-        converted
-    );
+        }
+        else if (converted_ind_var->value.type == Type::LIT_STRING 
+            || converted_ind_var->value.type == Type::LIT_CHAR 
+            || converted_ind_var->value.type == Type::LIT_LONG_STRING) 
+        {
+            auto value = std::get<std::string>(converted_ind_var->value.value);
+            auto data_type = symb->element_types_.value().find(value);
+
+            if (data_type != symb->element_types_.value().end()) {
+                eNode->node_data_type = data_type->second;
+            }
+            else {
+                eNode->node_data_type = Symbol::DataType::UNKNOWN;
+                diags_.collect_diags(
+                    "undefined index in table", name_left,
+                    DiagnosticEngine::DiagType::ERROR, eNode
+                );
+            }
+        }
+        else if (converted_ind_var->value.type == Type::IDENT) {
+            eNode->node_data_type = Symbol::DataType::UNKNOWN;
+        }
+        else { 
+            eNode->node_data_type = Symbol::DataType::UNKNOWN;
+            diags_.collect_diags(
+                "undefined index in table", name_left,
+                DiagnosticEngine::DiagType::ERROR, eNode
+            );
+        }
+    }
 }
 
 void SemanticAnalyzer::visit(FunctionNode* fNode) {
@@ -1345,7 +1402,6 @@ void SemanticAnalyzer::visit(BinaryOpNode* boNode) {
                 && boNode->right->node_data_type != Symbol::DataType::STRING
                 && boNode->right->node_data_type != Symbol::DataType::UNKNOWN) {
 
-                std::cout << "Worked on (2)\n";
                 diags_.collect_diags(
                     "invalid data type of", 
                     std::string(boNode->getName()),

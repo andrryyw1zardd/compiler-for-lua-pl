@@ -9,24 +9,20 @@ ArenaAllocator<Node*> alloc(arena);
 ArenaAllocator<Type> alloc_for_type(arena);
 ArenaAllocator<bool> alloc_for_bool(arena);
 
-void Parser::free_arena() {
-    arena.free();
-}
+void Parser::free_arena() { arena.free(); }
 
 const Token& Parser::peek() {
-    static const Token eof {.type = Type::END_OF_FILE};
     if (index >= listOfTokens.size()) return eof;
     return listOfTokens[index];
 }
 
 const Token& Parser::peekNext() {
-    static const Token eof {.type = Type::END_OF_FILE};
     if (index >= listOfTokens.size()) return eof;
     return listOfTokens[index + 1];
 }
 
 Token Parser::advance() {
-    if (index >= listOfTokens.size()) return Token{.type = Type::END_OF_FILE};  
+    if (index >= listOfTokens.size()) return eof; 
     return listOfTokens[index++];
 }
 
