@@ -160,12 +160,12 @@ Node* Parser::parse_local() {
         advance();
         Type attr = peek().type;
 
-        if (attr == Type::KW_CONST) {
+        if (attr == Type::ATTR_CONST) { 
             advance();
             const_vect.push_back(true);
         }
-        else if (attr == Type::KW_CLOSE) { isClose = true; advance(); }
-        else throwError(Type::KW_CONST);
+        else if (attr == Type::ATTR_CLOSE) { isClose = true; advance(); }
+        else throwError(Type::ATTR_CONST);
 
         expect(Type::GREATER);
     }
@@ -178,12 +178,12 @@ Node* Parser::parse_local() {
             advance();
             Type attr = peek().type;
 
-            if (attr == Type::KW_CONST) {
+            if (attr == Type::ATTR_CONST) {
                 advance();
                 const_vect.push_back(true);
             }
-            else if (attr == Type::KW_CLOSE) { isClose = true; advance(); }
-            else throwError(Type::KW_CONST);
+            else if (attr == Type::ATTR_CLOSE) { isClose = true; advance(); }
+            else throwError(Type::ATTR_CONST);
 
             expect(Type::GREATER);
         }
@@ -481,6 +481,10 @@ Node* Parser::parse_return() {
     return make<ReturnNode>(alloc, 1, position, std::move(args));
 }
 
+Node* Parser::parse_break() {
+    return make<BreakNode>(alloc, 1, peek().position);
+}
+
 std::vector<Node*, ArenaAllocator<Node*>> Parser::parse_block() {
     std::vector<Node*, ArenaAllocator<Node*>> block(alloc);
 
@@ -489,6 +493,7 @@ std::vector<Node*, ArenaAllocator<Node*>> Parser::parse_block() {
         if (statement) {
             block.push_back(statement); 
         }
+        else break;
     }
 
     return block;
@@ -522,6 +527,9 @@ Node* Parser::parse_stat() {
             break;
         case Type::KW_DO:
             return parse_do();
+            break;
+        case Type::KW_BREAK:
+            return parse_break();
             break;
         default:
             return parse_expr(0); 

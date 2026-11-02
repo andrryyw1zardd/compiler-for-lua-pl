@@ -11,7 +11,7 @@ struct Node; struct UnaryOpNode; struct BinaryOpNode; struct BitwiseNode;
 struct MemberAccessNode; struct BasicDataNode; struct VariableNode;
 struct MultipleVariableNode; struct AndTernaryNode; struct IdentNode; struct EllipsisNode;
 struct OrTernaryNode; struct ArrayNode; struct ExprWithIndexNode; struct ReturnNode;
-struct TableFieldNode; struct IfNode; struct ElseIfNode;
+struct TableFieldNode; struct IfNode; struct ElseIfNode; struct BreakNode;
 struct DoNode; struct WhileNode; struct NumericForNode; struct MethodCallNode;
 struct GenericForNode; struct RepeatUntilNode; struct FunctionNode;
 struct AnonFunctionNode; struct MethodNode; struct FunctionCallNode; 
@@ -39,10 +39,9 @@ struct Symbol {
     std::optional<std::vector<DataType>> return_types_ = std::nullopt;
 
     std::optional<bool> have_const_attr_ = false;
-    std::optional<std::unordered_map<std::variant<std::string, int>, Symbol::DataType>> element_types_ = std::nullopt;
 
     // for objects with variables or/and with methods
-    std::optional<std::string> name_ = "";
+    std::optional<std::string> name_ = std::nullopt;
     std::optional<std::vector<Symbol>> variable_map_ = std::nullopt;
     std::optional<std::vector<Symbol>> method_map_ = std::nullopt;
 
@@ -96,6 +95,7 @@ public:
     virtual void visit(FunctionCallNode*) = 0;
     virtual void visit(MethodCallNode*) = 0;
     virtual void visit(ReturnNode*) = 0;
+    virtual void visit(BreakNode*) = 0;
 };
 
 class SemanticAnalyzer : public Visitor {
@@ -103,11 +103,6 @@ private:
     std::vector<std::unique_ptr<Scope>> scopes_;
     std::vector<std::variant<FunctionNode*, AnonFunctionNode*, MethodNode*>> func_scopes_;
     DiagnosticEngine& diags_;
-
-    // need to add the rest
-    // not only for these 2 vectors, but also for everything else too
-    std::vector<std::string_view> str_dt_basic_methods = {"lower"};
-    std::vector<std::string_view> table_dt_basic_variables = {"n"};
 
 public:
     SemanticAnalyzer(DiagnosticEngine& d) : diags_(d) { 
@@ -169,6 +164,8 @@ public:
     void visit(RepeatUntilNode*) override final;
     void visit(NumericForNode*) override final;
     void visit(GenericForNode*) override final;
+
+    void visit(BreakNode*) override final;
 };
 
 #endif

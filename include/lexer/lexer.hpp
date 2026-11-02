@@ -10,7 +10,7 @@
 
 enum class Type {
     KW_LOCAL, KW_IF, KW_THEN, KW_ELSE, KW_ELSEIF, KW_END,
-    KW_FUNCTION, KW_RETURN, KW_WHILE, KW_CONST, KW_CLOSE,
+    KW_FUNCTION, KW_RETURN, KW_WHILE, ATTR_CONST, ATTR_CLOSE,
     KW_FOR, KW_DO, KW_REPEAT, KW_UNTIL, KW_NIL,
     KW_TRUE, KW_FALSE, KW_AND, KW_OR, KW_NOT, KW_IN,
 
@@ -30,7 +30,7 @@ enum class Type {
     NOT, ELLIPSIS, TILDE, L_SHIFT, R_SHIFT,
 
     END_OF_FILE, // Specefic
-    ERROR
+    KW_BREAK, ERROR
 };
 
 struct Vect2 { int x; int y; };
@@ -68,16 +68,18 @@ private:
         table[static_cast<unsigned char>(';')] = Type::SEMICOLON;
         table[static_cast<unsigned char>('!')] = Type::NOT;
         table[static_cast<unsigned char>('&')] = Type::AMPERSAND;
-        table[static_cast<unsigned char>('~')] = Type::TILDE;
         table[static_cast<unsigned char>('|')] = Type::VERTICAL_BAR;
 
         return table;
     }();
 
+    static inline std::unordered_map<std::string_view, Type> attrMap = {
+        {"const",    Type::ATTR_CONST},
+        {"close",    Type::ATTR_CLOSE},
+    };
+
     static inline std::unordered_map<std::string_view, Type> keywordMap = {
         {"local",    Type::KW_LOCAL},
-        {"const",    Type::KW_CONST},
-        {"close",    Type::KW_CLOSE},
         {"if",       Type::KW_IF},
         {"then",     Type::KW_THEN},
         {"else",     Type::KW_ELSE},
@@ -97,6 +99,7 @@ private:
         {"or",       Type::KW_OR},
         {"not",      Type::KW_NOT},
         {"in",       Type::KW_IN},
+        {"break",    Type::KW_BREAK}
     };
 
     static constexpr char numbersArray[10] = {'0', '1', '2', '3', '4',

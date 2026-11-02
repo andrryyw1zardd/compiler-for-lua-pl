@@ -236,3 +236,52 @@ local function handler(e)
 end
 local ok4, res4 = xpcall(function() error("boom") end, handler)
 print("xpcall:", ok4, res4)
+
+--------------------------------------------------------------------
+-- 19. Metatables: full metamethod set
+--------------------------------------------------------------------
+print("\n-- Metamethods --")
+local Vector = {}
+Vector.__index = Vector
+
+function Vector.new(x, y)
+    return setmetatable({x = x, y = y}, Vector)
+end
+
+-- why it doesnt give a fuck about this __field shit (lines 245, 252-260, 277-284)?
+Vector.__add = function(a, b) return Vector.new(a.x + b.x, a.y + b.y) end
+Vector.__sub = function(a, b) return Vector.new(a.x - b.x, a.y - b.y) end
+Vector.__eq  = function(a, b) return a.x == b.x and a.y == b.y end
+Vector.__lt  = function(a, b) return (a.x^2 + a.y^2) < (b.x^2 + b.y^2) end
+Vector.__tostring = function(v) return "(" .. v.x .. ", " .. v.y .. ")" end
+Vector.__concat = function(a, b) return tostring(a) .. tostring(b) end
+Vector.__len = function(v) return math.floor(math.sqrt(v.x^2 + v.y^2)) end
+Vector.__call = function(v, scalar) return Vector.new(v.x * scalar, v.y * scalar) end
+Vector.__unm = function(v) return Vector.new(-v.x, -v.y) end
+
+local v1 = Vector.new(1, 2)
+local v2 = Vector.new(3, 4)
+print("v1 + v2 =", tostring(v1 + v2))
+print("v1 - v2 =", tostring(v1 - v2))
+print("v1 == Vector.new(1,2):", v1 == Vector.new(1, 2))
+print("v1 < v2:", v1 < v2)
+print("concat:", v1 .. v2)
+print("#v2 (len) =", #v2)
+print("v1(10) =", tostring(v1(10)))
+print("-v1 =", tostring(-v1))
+
+-- __newindex and __index as functions (proxy tables)
+local proxy = {}
+local hidden = {}
+setmetatable(proxy, {
+    __index = function(t, k)
+        print("Accessed key:", k)
+        return hidden[k]
+    end,
+    __newindex = function(t, k, v)
+        print("Set key:", k, "to", v)
+        hidden[k] = v
+    end
+})
+proxy.foo = "bar"
+print("proxy.foo =", proxy.foo)

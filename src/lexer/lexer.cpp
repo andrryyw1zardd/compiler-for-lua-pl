@@ -124,8 +124,9 @@ Token Lexer::nextToken() {
         return nextToken();
     }
 
-    // just eating it all until operator 
-    std::string value;
+   // just eating it all until operator 
+   std::string value;
+   char before_value = peekPast();
 
    // this statment is just for ident to not begin from number (123var)
    if (std::isalpha(peek()) || peek() == '_') { 
@@ -142,8 +143,20 @@ Token Lexer::nextToken() {
 
             return Token{.type = type, .value = value, .position = {x, y}};
         } 
-        // this is just a identificator
-        else return Token{.type = Type::IDENT, .value = value, .position = {x, y}};
+        else {
+            t = attrMap.find(value);
+
+            if (t != attrMap.end()) {
+                if (before_value == '<') { // <'value'... -> either attribute or error
+                    Type type = t->second;
+
+                    return Token{.type = type, .value = value, .position = {x, y}};
+                }
+            }
+
+            // this is just a identificator
+            return Token{.type = Type::IDENT, .value = value, .position = {x, y}};
+        }
     }
 
     { // string check 
@@ -378,7 +391,7 @@ Token Lexer::nextToken() {
              case '~':
                 advance();
                 if (match('=')) type = Type::NOT_EQUAL;
-                else type = Type::ERROR; 
+                else type = Type::TILDE; 
                 return Token{.type = type, .position = {x, y}};
 
             case '.':
