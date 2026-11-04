@@ -483,18 +483,6 @@ struct ReturnNode : Node {
     }
 };
 
-struct BreakNode : Node {
-    BreakNode() = default;
-
-    std::string_view getName() const override {
-        return "ReturnNode";
-    }
-
-    void accept(Visitor& v) override {
-        v.visit(this);
-    }
-};
-
 class Parser {
 private:
     std::vector<Token> listOfTokens;
@@ -557,7 +545,6 @@ private:
     Node* parse_for();
     Node* parse_repeat();
     Node* parse_return();
-    Node* parse_break();
     Node* parse_local();
     Node* parse_function(bool isLocal);
     Node* parse_ident();

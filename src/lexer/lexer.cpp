@@ -126,7 +126,10 @@ Token Lexer::nextToken() {
 
    // just eating it all until operator 
    std::string value;
-   char before_value = peekPast();
+   char before_value;
+
+   if (index == 0) before_value = '\0';
+   else before_value = peekPast();
 
    // this statment is just for ident to not begin from number (123var)
    if (std::isalpha(peek()) || peek() == '_') { 

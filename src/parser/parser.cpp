@@ -481,10 +481,6 @@ Node* Parser::parse_return() {
     return make<ReturnNode>(alloc, 1, position, std::move(args));
 }
 
-Node* Parser::parse_break() {
-    return make<BreakNode>(alloc, 1, peek().position);
-}
-
 std::vector<Node*, ArenaAllocator<Node*>> Parser::parse_block() {
     std::vector<Node*, ArenaAllocator<Node*>> block(alloc);
 
@@ -527,9 +523,6 @@ Node* Parser::parse_stat() {
             break;
         case Type::KW_DO:
             return parse_do();
-            break;
-        case Type::KW_BREAK:
-            return parse_break();
             break;
         default:
             return parse_expr(0); 

@@ -11,7 +11,7 @@ struct Node; struct UnaryOpNode; struct BinaryOpNode; struct BitwiseNode;
 struct MemberAccessNode; struct BasicDataNode; struct VariableNode;
 struct MultipleVariableNode; struct AndTernaryNode; struct IdentNode; struct EllipsisNode;
 struct OrTernaryNode; struct ArrayNode; struct ExprWithIndexNode; struct ReturnNode;
-struct TableFieldNode; struct IfNode; struct ElseIfNode; struct BreakNode;
+struct TableFieldNode; struct IfNode; struct ElseIfNode;
 struct DoNode; struct WhileNode; struct NumericForNode; struct MethodCallNode;
 struct GenericForNode; struct RepeatUntilNode; struct FunctionNode;
 struct AnonFunctionNode; struct MethodNode; struct FunctionCallNode; 
@@ -95,7 +95,6 @@ public:
     virtual void visit(FunctionCallNode*) = 0;
     virtual void visit(MethodCallNode*) = 0;
     virtual void visit(ReturnNode*) = 0;
-    virtual void visit(BreakNode*) = 0;
 };
 
 class SemanticAnalyzer : public Visitor {
@@ -119,6 +118,7 @@ public:
 
     Symbol* getChildSymbol(MemberAccessNode*);
     Symbol* getSymbolFromNode(Node*);
+    Symbol* getChildSymbByName(Symbol&, std::string);
 
     void makeScope();
     void removeScope();
@@ -164,8 +164,6 @@ public:
     void visit(RepeatUntilNode*) override final;
     void visit(NumericForNode*) override final;
     void visit(GenericForNode*) override final;
-
-    void visit(BreakNode*) override final;
 };
 
 #endif

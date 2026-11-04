@@ -109,32 +109,6 @@ Symbol* SemanticAnalyzer::getChildSymbol(MemberAccessNode* node) {
             }
         }
 
-        // if (!child_symb) {
-        //     if (iter_symb->variable_map_.has_value()) {
-        //         Symbol* qual_symb = &iter_symb->variable_map_.value()[0];
-        //         for (const auto& qual: *iter_symb->variable_map_) {
-        //             if (qual.name_ == q_str_vec[i]) {
-        //                 *qual_symb = qual;
-        //             }
-        //         }
-        //
-        //         if (qual_symb) {
-        //             Symbol inner_symb = {
-        //                 .kind_ = Symbol::Kind::UPVALUE,
-        //                 .data_type_ = qual_symb->data_type_, 
-        //                 .name_ = q_str_vec[i]
-        //             };
-        //
-        //             if (!iter_symb->variable_map_.has_value()) {
-        //                 iter_symb->variable_map_ = std::vector<Symbol>{};
-        //             }
-        //
-        //             iter_symb->variable_map_->push_back(inner_symb);
-        //             child_symb = &iter_symb->variable_map_->back();
-        //         }
-        //     }
-        // }
-
         if (child_symb) iter_symb = child_symb;
         else {
             diags_.collect_diags(
@@ -161,59 +135,6 @@ Symbol* SemanticAnalyzer::getSymbolFromNode(Node* node) {
             return nullptr;
         }
 
-        if (symb->data_type_ == Symbol::DataType::STRING) {
-            if (symb->method_map_->empty()) { symb->method_map_.emplace(); }
-
-            // for (auto& method_name: str_dt_basic_methods) {
-            //     Symbol method_symb = {
-            //         .kind_ = Symbol::Kind::LOCAL,
-            //         .data_type_ = Symbol::DataType::UNKNOWN,
-            //         .name_ = std::string(method_name),
-            //     };
-            //
-            //     symb->method_map_.value().push_back(method_symb);
-            // }
-        }
-
-        else if (symb->data_type_ == Symbol::DataType::TABLE) {
-            if (symb->variable_map_->empty()) { symb->variable_map_.emplace(); }
-
-            // for (auto& var_name: table_dt_basic_variables) {
-            //     symb->variable_map_.value().push_back(
-            //         Symbol {
-            //         .kind_ = Symbol::Kind::LOCAL,
-            //         .data_type_ = Symbol::DataType::UNKNOWN,
-            //         .name_ = std::string(var_name),
-            //         .node_ = symb->node_
-            //     });
-            // }
-        }
-
-        else if (symb->data_type_ == Symbol::DataType::UNKNOWN) {
-            if (symb->method_map_->empty()) { symb->method_map_.emplace(); }
-            if (symb->variable_map_->empty()) { symb->variable_map_.emplace(); }
-
-            // for (auto& method_name: str_dt_basic_methods) {
-            //     Symbol method_symb = {
-            //         .kind_ = Symbol::Kind::LOCAL,
-            //         .data_type_ = Symbol::DataType::UNKNOWN,
-            //         .name_ = std::string(method_name),
-            //     };
-            //
-            //     symb->method_map_.value().push_back(method_symb);
-            // }
-            //
-            // for (auto& var_name: table_dt_basic_variables) {
-            //     symb->variable_map_.value().push_back(
-            //         Symbol {
-            //         .kind_ = Symbol::Kind::LOCAL,
-            //         .data_type_ = Symbol::DataType::UNKNOWN,
-            //         .name_ = std::string(var_name),
-            //         .node_ = symb->node_
-            //     });
-            // }
-        }
-
         return symb;
     }
 
@@ -230,6 +151,19 @@ Symbol* SemanticAnalyzer::getSymbolFromNode(Node* node) {
             "undefined symb with data type of",
             std::string(node->getName()),
             DiagnosticEngine::DiagType::ERROR, node);
+    return nullptr;
+}
+
+Symbol* SemanticAnalyzer::getChildSymbByName(Symbol& parent, std::string child_name) {
+    if (child_name == "") return &parent;
+    if (!parent.variable_map_.has_value()) return nullptr;
+
+    for (auto& ch: parent.variable_map_.value()) {
+        if (ch.name_ == child_name) {
+            return &ch;
+        }
+    }
+
     return nullptr;
 }
 
@@ -251,19 +185,9 @@ void SemanticAnalyzer::makeFuncScope(Node* node) {
         func_scopes_.push_back(fNode);
     }
     else if (mNode) {
-        std::string vName = std::get<std::string>(mNode->value.value);
-        Symbol symb = {
-            .kind_ = (mNode->isLocal) ? Symbol::Kind::LOCAL : Symbol::Kind::GLOBAL,
-            .data_type_ = Symbol::DataType::UNKNOWN,
-            .is_used_ = false, 
-            .node_ = mNode 
-        };
-
-        scopes_.back()->add_into_symbols(vName, symb);
         func_scopes_.push_back(mNode);
     }
     else if (afNode) {
-        // no need to pass symbol into scopes
         func_scopes_.push_back(afNode);
     }
     else {
@@ -566,6 +490,7 @@ void SemanticAnalyzer::visit(MultipleVariableNode* mvNode) {
 
 void SemanticAnalyzer::visit(IdentNode* iNode) {
     std::vector<Symbol*> lSymbVect;
+    std::vector<std::string> lFieldNameVect;
     std::vector<Symbol::DataType> lDtVect;
 
     for (const auto& left: iNode->left_side) {
@@ -601,6 +526,7 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
 
             symb->name_ = lName;
             lSymbVect.push_back(symb);
+            lFieldNameVect.push_back("");
         }
 
         else if (converted_with_index) {
@@ -638,6 +564,7 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
 
             Symbol* symb = scopes_.back()->lookup(lName);
             lSymbVect.push_back(symb);
+            lFieldNameVect.push_back("");
         }
         else if (converted_member) {
             Node* current = converted_member;
@@ -670,7 +597,8 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
 
                 for (auto& qs: *base_symb->variable_map_) {
                     if (qs.name_ == qs_name) {
-                        lSymbVect.push_back(&qs);
+                        lSymbVect.push_back(base_symb);
+                        lFieldNameVect.push_back(qs_name);
                         found = true;
                     }
                 }
@@ -685,7 +613,8 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
                     };
 
                     base_symb->variable_map_->push_back(new_qs);
-                    lSymbVect.push_back(&base_symb->variable_map_->back());
+                    lSymbVect.push_back(base_symb);
+                    lFieldNameVect.push_back(qs_name);
                 }
             }
             else {
@@ -700,7 +629,9 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
                 };
 
                 base_symb->variable_map_->push_back(new_qs);
-                lSymbVect.push_back(&base_symb->variable_map_->back());
+
+                lSymbVect.push_back(base_symb);
+                lFieldNameVect.push_back(qs_name);
             }
         }
         else {
@@ -746,7 +677,7 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
 
         if (converted_arr) {
             if (i < lSymbVect.size()) {
-                Symbol* symb = lSymbVect[i];
+                Symbol* symb = getChildSymbByName(*lSymbVect[i], lFieldNameVect[i]);
 
                 if (!symb) {
                     diags_.collect_diags(
@@ -765,7 +696,7 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
 
         if (converted_anon_func) {
             if (i < lSymbVect.size()) {
-                Symbol* symb = lSymbVect[i];
+                Symbol* symb = getChildSymbByName(*lSymbVect[i], lFieldNameVect[i]);
 
                 if (!symb) {
                     diags_.collect_diags(
@@ -783,7 +714,7 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
     }
     
     for (size_t i = 0; i < lSymbVect.size(); ++i) {
-        Symbol* lSymb = lSymbVect[i];
+        Symbol* lSymb = getChildSymbByName(*lSymbVect[i], lFieldNameVect[i]);
 
         if (!lSymb) {
             // diags
@@ -831,7 +762,8 @@ void SemanticAnalyzer::visit(UnaryOpNode* uoNode) {
         case Type::MINUS:
         case Type::PLUS:
             if (uoNode->value->node_data_type == Symbol::DataType::FLOAT 
-                ||uoNode->value->node_data_type == Symbol::DataType::INT
+                || uoNode->value->node_data_type == Symbol::DataType::INT
+                || uoNode->value->node_data_type == Symbol::DataType::UNKNOWN
             ) {
                 uoNode->node_data_type = uoNode->value->node_data_type;
             }
@@ -847,8 +779,9 @@ void SemanticAnalyzer::visit(UnaryOpNode* uoNode) {
 
         case Type::TILDE:
             if (uoNode->value->node_data_type == Symbol::DataType::INT 
-                ||uoNode->value->node_data_type == Symbol::DataType::FLOAT
-                ||uoNode->value->node_data_type == Symbol::DataType::STRING
+                || uoNode->value->node_data_type == Symbol::DataType::FLOAT
+                || uoNode->value->node_data_type == Symbol::DataType::STRING
+                || uoNode->value->node_data_type == Symbol::DataType::UNKNOWN
             ) {
                 uoNode->node_data_type = Symbol::DataType::INT;
             }
@@ -865,7 +798,8 @@ void SemanticAnalyzer::visit(UnaryOpNode* uoNode) {
         // hash returns size of string/table
         case Type::HASH:
             if (uoNode->value->node_data_type == Symbol::DataType::TABLE 
-                ||uoNode->value->node_data_type == Symbol::DataType::STRING
+                || uoNode->value->node_data_type == Symbol::DataType::STRING
+                || uoNode->value->node_data_type == Symbol::DataType::UNKNOWN
             ) {
                 uoNode->node_data_type = Symbol::DataType::INT;
             }
@@ -889,6 +823,11 @@ void SemanticAnalyzer::visit(MemberAccessNode* maNode) {
     Symbol* symb = getSymbolFromNode(maNode->value);
     Symbol* qual_symb = nullptr;
     if (!symb) { return; }
+
+    if (symb->data_type_ == Symbol::DataType::UNKNOWN) {
+        maNode->node_data_type = Symbol::DataType::UNKNOWN;
+        return;
+    }
 
     if (symb->data_type_ == Symbol::DataType::TABLE) {
         std::string qual_name = std::get<std::string>(maNode->qualifier.value);
@@ -1283,26 +1222,28 @@ void SemanticAnalyzer::visit(AnonFunctionNode* afNode) {
     makeFuncScope(afNode);
     makeScope();
 
-    for (auto& arg : afNode->args) {
-        VariableNode* converted = dynamic_cast<VariableNode*>(arg);
+    if (!afNode->args.empty()) {
+        for (auto& arg : afNode->args) {
+            VariableNode* converted = dynamic_cast<VariableNode*>(arg);
 
-        if (!converted) {
-            diags_.collect_diags(
-                "invalid function param in", "anonymous function",
-                DiagnosticEngine::DiagType::ERROR, afNode);
+            if (!converted) {
+                diags_.collect_diags(
+                    "invalid function param in", "anonymous function",
+                    DiagnosticEngine::DiagType::ERROR, afNode);
 
-            continue;
+                return;
+            }
+
+            std::string vName = std::get<std::string>(converted->value.value);
+            Symbol vSymb = {
+                .kind_ = Symbol::Kind::PARAM,
+                .data_type_ = Symbol::DataType::UNKNOWN,
+                .is_used_ = false, 
+                .node_ = arg 
+            };
+
+            scopes_.back()->add_into_symbols(vName, vSymb);
         }
-
-        std::string vName = std::get<std::string>(converted->value.value);
-        Symbol vSymb = {
-            .kind_ = Symbol::Kind::PARAM,
-            .data_type_ = Symbol::DataType::UNKNOWN,
-            .is_used_ = false, 
-            .node_ = arg 
-        };
-
-        scopes_.back()->add_into_symbols(vName, vSymb);
     }
 
     for (const auto& var : afNode->body) {
@@ -1406,7 +1347,7 @@ void SemanticAnalyzer::visit(ReturnNode* rNode) {
         }
         else {
             for (size_t i = 0; i < temp_vect.size(); ++i) {
-                if (i > symb->return_types_->size()) {
+                if (i >= symb->return_types_->size()) {
                     diags_.collect_diags(
                         "inconsistent/invalid return types in function", 
                         fName, DiagnosticEngine::DiagType::ERROR, rNode);
@@ -1432,7 +1373,18 @@ void SemanticAnalyzer::visit(ReturnNode* rNode) {
         MethodNode* curr_func = std::get<MethodNode*>(currentFuncScope());
         std::string fName = std::get<std::string>(curr_func->value.value);
 
-        Symbol* symb = scopes_.back()->get_parent()->lookup(fName);
+        Symbol* class_symb = scopes_.back()->lookup(std::get<std::string>(curr_func->className.value));
+        Symbol* symb = nullptr;
+
+        if (class_symb && class_symb->method_map_.has_value()) {
+            for (auto& it: class_symb->method_map_.value()) {
+                if (it.name_ == fName) {
+                    symb = &it;
+                    break;
+                }
+            }
+        }
+
         if (!symb) {
             diags_.collect_diags(
                 "function symbol not found in parent scope", 
@@ -1445,7 +1397,7 @@ void SemanticAnalyzer::visit(ReturnNode* rNode) {
         }
         else {
             for (size_t i = 0; i < temp_vect.size(); ++i) {
-                if (i > symb->return_types_->size()) {
+                if (i >= symb->return_types_->size()) {
                     diags_.collect_diags(
                         "inconsistent/invalid return types in function", 
                         fName, DiagnosticEngine::DiagType::ERROR, rNode);
@@ -1815,5 +1767,3 @@ void SemanticAnalyzer::visit(GenericForNode* gfNode) {
     for (const auto& iter: gfNode->body) { iter->accept(*this); }
     removeScope();
 }
-
-void SemanticAnalyzer::visit(BreakNode*) {}
