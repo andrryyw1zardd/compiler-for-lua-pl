@@ -130,6 +130,7 @@ public:
 
     // variable things 
     void visit(VariableNode*) override final;
+    // MultipleVariableNode and IdentNode need to be fixed
     void visit(MultipleVariableNode*) override final;
     void visit(IdentNode*) override final;
     void visit(BasicDataNode*) override final;

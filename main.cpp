@@ -27,9 +27,15 @@ int main([[maybe_unused]]int argc, char** args) {
     Parser parser{VectorOfTokens};  
     std::vector<Node*, ArenaAllocator<Node*>> ast = parser.parse_block();
 
+    if (parser.diag_count() > 0) {
+        parser.print_diags();
+        return 1;
+    }
+
     auto t2 = std::chrono::high_resolution_clock::now();
     DiagnosticEngine diags;
     SemanticAnalyzer sema{diags};
+
     for (const auto& node: ast) {
         node->accept(sema);
     }
@@ -40,16 +46,14 @@ int main([[maybe_unused]]int argc, char** args) {
     auto par_us = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
     auto sem_us = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
 
-    if (parser.diag_count() == 0 && sema.diag_count() == 0) {
-        std::cerr << "Lexer Speed: " << lex_us << " us\n";
-        std::cerr << "Parser Speed: " << par_us << " us\n";
-        std::cerr << "Sema Speed: " << sem_us << " us\n";
-    }
-    else { 
-        parser.print_diags();
+    if (sema.diag_count() > 0) {
         sema.print_diags();
         return 1;
     }
+
+    std::cerr << "Lexer Speed: " << lex_us << " us\n";
+    std::cerr << "Parser Speed: " << par_us << " us\n";
+    std::cerr << "Sema Speed: " << sem_us << " us\n";
 
     return 0;
 }

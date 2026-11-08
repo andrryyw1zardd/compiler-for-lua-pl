@@ -449,29 +449,6 @@ Node* Parser::parse_return() {
     std::vector<Node*, ArenaAllocator<Node*>> args(alloc);
 
     while (!endblock()) {
-        if (check(Type::KW_FUNCTION)) {
-            advance();
-            expect(Type::L_PAREN);
-
-            std::vector<Node*, ArenaAllocator<Node*>> innerArgs(alloc);
-
-            while (!check(Type::R_PAREN)) {
-                innerArgs.push_back(parse_expr(0));
-
-                if (!check(Type::COMMA) && !check(Type::R_PAREN)) { throwError(Type::R_PAREN); }
-                if (check(Type::COMMA)) advance();
-            }
-
-            expect(Type::R_PAREN);
-
-            std::vector<Node*, ArenaAllocator<Node*>> body = parse_block();
-            expect(Type::KW_END);
-
-            return make<AnonFunctionNode>(alloc, 1, position,
-                std::move(innerArgs), std::move(body)
-            );
-        }
-
         args.push_back(parse_expr(0));
 
         if (check(Type::COMMA)) advance();

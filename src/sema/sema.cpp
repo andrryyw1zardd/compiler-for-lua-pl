@@ -6,6 +6,7 @@
 #include <utility>
 #include <iostream>
 
+
 Scope* Scope::get_parent() {
     return this->parent_;
 }
@@ -518,11 +519,19 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
             lName = std::get<std::string>(base->value.value);
 
             if (!scopes_.back()->lookup(lName)) {
-                // diags
+                diags_.collect_diags(
+                    "undefined identificator with name", lName,
+                    DiagnosticEngine::DiagType::ERROR, base);
                 return;
             }
 
             Symbol* symb = scopes_.back()->lookup(lName);
+
+            if (symb->have_const_attr_.value_or(false)) {
+                diags_.collect_diags(
+                    "variable with const attribute cant be modified. variable",
+                    lName, DiagnosticEngine::DiagType::ERROR, base);
+            }
 
             symb->name_ = lName;
             lSymbVect.push_back(symb);
@@ -558,7 +567,9 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
             lName = std::get<std::string>(left_base->value.value);
 
             if (!scopes_.back()->lookup(lName)) {
-                // diags
+                diags_.collect_diags(
+                    "undefined identificator with name", lName,
+                    DiagnosticEngine::DiagType::ERROR, left_base);
                 return;
             }
 
@@ -587,7 +598,8 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
             Symbol* base_symb = scopes_.back()->lookup(base_name);
 
             if (!base_symb) {
-                // diags
+                diags_.collect_diags("undefined indentificator with name",
+                base_name, DiagnosticEngine::DiagType::ERROR, base);
                 return;
             }
 
@@ -649,12 +661,6 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
                 DiagnosticEngine::DiagType::ERROR, left);
             continue;
         }
-        if (symb->have_const_attr_.value_or(false)) {
-            diags_.collect_diags(
-                "variable with const attribute cant be modified. variable", lName,
-                DiagnosticEngine::DiagType::ERROR, left);
-            continue;
-        }
     }
 
     for (size_t i = 0; i < iNode->right_side.size(); ++i) {
@@ -682,7 +688,7 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
                 if (!symb) {
                     diags_.collect_diags(
                         "undeclerated array definition, variable",
-                        *symb->name_, 
+                        lFieldNameVect[i], 
                         DiagnosticEngine::DiagType::ERROR, right);
                     return;
                 }
@@ -700,12 +706,15 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
 
                 if (!symb) {
                     diags_.collect_diags(
-                        "undeclerated function definition, variable", *symb->name_,
+                        "undeclerated function definition, variable", lFieldNameVect[i],
                         DiagnosticEngine::DiagType::ERROR, right);
                     return;
                 }
 
                 symb->return_types_ = converted_anon_func->return_types;
+                symb->data_type_ = Symbol::DataType::FUNCTION;
+                lDtVect.push_back(Symbol::DataType::FUNCTION);
+                continue;
             }
         }
 
@@ -717,10 +726,13 @@ void SemanticAnalyzer::visit(IdentNode* iNode) {
         Symbol* lSymb = getChildSymbByName(*lSymbVect[i], lFieldNameVect[i]);
 
         if (!lSymb) {
-            // diags
-            continue;
+            diags_.collect_diags("undefined indentificator with name",
+            lFieldNameVect[i], DiagnosticEngine::DiagType::ERROR, lSymbVect[i]->node_);
+            return;
         }
-        else if (lSymb->data_type_ == Symbol::DataType::TABLE) { continue; }
+        // theres better way to do this, fix later 
+        else if (lSymb->data_type_ == Symbol::DataType::TABLE ||
+                 lSymb->data_type_ == Symbol::DataType::UNKNOWN) { continue; }
 
         if (lDtVect.size() > i) { lSymb->data_type_ = lDtVect[i]; }
         else lSymb->data_type_ = Symbol::DataType::NIL;
