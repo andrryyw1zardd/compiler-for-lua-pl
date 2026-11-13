@@ -1,11 +1,16 @@
 #include "sema/sema.hpp"
 #include "parser/parser.hpp"
-// #include "libs/std_lib.hpp"
+#include "libs/std_lib.hpp"
 #include <format>
 #include <cassert>
 #include <utility>
 #include <iostream>
 
+SemanticAnalyzer::SemanticAnalyzer(DiagnosticEngine& d) : diags_(d) { 
+    scopes_.push_back(std::make_unique<Scope>(nullptr));
+
+    STANDARD::initAll(this);
+}
 
 Scope* Scope::get_parent() {
     return this->parent_;
@@ -233,136 +238,6 @@ std::vector<std::string>* DiagnosticEngine::get_diags() {
     return &diag_vect_;
 }
 
-void SemanticAnalyzer::initGlobalFunctions() {
-    std::array<std::string, 13> globalFuncNames {
-        "print", "type", "tostring", "tonumber",
-        "error", "assert", "select", "next",
-        "pairs", "ipairs", "pcall", "xpcall",
-        "setmetatable"
-    };
-
-    std::vector<std::vector<Symbol::DataType>> globalFuncRetTypes {
-        std::vector<Symbol::DataType>{Symbol::DataType::NIL}, // print
-        std::vector<Symbol::DataType>{Symbol::DataType::STRING}, // type
-        std::vector<Symbol::DataType>{Symbol::DataType::STRING}, // tostring
-        std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN}, // tonumber
-        std::vector<Symbol::DataType>{Symbol::DataType::NIL}, // error
-        std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN}, // assert (it can return its args or error)
-        std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN}, // select (it returns its own args, 0 or more)
-        std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN, Symbol::DataType::UNKNOWN}, // next (key, value)
-        std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN}, // pairs (can return iter, table or nil, so just UNKNOWN)
-        std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN,
-            Symbol::DataType::UNKNOWN, Symbol::DataType::UNKNOWN}, // ipairs (same as pairs just 0 instead of nil)
-        std::vector<Symbol::DataType>{Symbol::DataType::BOOL, Symbol::DataType::UNKNOWN}, // pcall
-        std::vector<Symbol::DataType>{Symbol::DataType::BOOL, Symbol::DataType::UNKNOWN}, // xpcall
-        std::vector<Symbol::DataType>{Symbol::DataType::UNKNOWN} // setmetatable
-    };
-
-    for (size_t i = 0; i < globalFuncRetTypes.size(); ++i) {
-        Symbol symb = {
-            .kind_ = Symbol::Kind::GLOBAL,
-            .data_type_ = Symbol::DataType::NIL,
-            .return_types_ = globalFuncRetTypes[i],
-            .is_used_ = false,
-            .node_ = nullptr };
-
-        scopes_.front()->add_into_symbols(globalFuncNames[i], symb);
-    }
-}
-
-void SemanticAnalyzer::initGlobalMethods() {
-    using DT = Symbol::DataType;
-     
-    std::vector<std::string> globalIdentNames = {
-        "math", "string", "table", "os", "io", "coroutine", "utf8", "debug",
-        "package", "file" };
-     
-    std::vector<std::vector<std::string>> globalMethodNames = {
-        { "abs", "ceil", "floor", "sqrt", "sin", "cos", "tan", "asin", "acos",
-          "atan", "exp", "log", "fmod", "modf", "max", "min", "random",
-          "randomseed", "tointeger", "type", "ult" },
-        { "byte", "char", "dump", "find", "format", "gmatch", "gsub", "len",
-          "lower", "match", "pack", "packsize", "rep", "reverse", "sub",
-          "upper", "unpack" },
-        { "concat", "insert", "move", "pack", "remove", "sort", "unpack" },
-        { "clock", "date", "difftime", "execute", "exit", "getenv", "remove",
-          "rename", "setlocale", "time", "tmpname" },
-        { "close", "flush", "input", "lines", "open", "output", "popen",
-          "read", "tmpfile", "write" },
-        { "create", "isyieldable", "resume", "running", "status", "wrap",
-          "yield", "close" },
-        { "char", "codepoint", "codes", "len", "offset" },
-        { "debug", "gethook", "getinfo", "getlocal", "getmetatable",
-          "getregistry", "getupvalue", "getuservalue", "sethook", "setlocal",
-          "setmetatable", "setupvalue", "setuservalue", "traceback",
-          "upvalueid", "upvaluejoin" },
-        { "loadlib", "searchpath" },
-        { "close", "flush", "lines", "read", "seek", "setvbuf", "write" }
-    };
-     
-    std::vector<std::vector<DT>> globalMethodRetTypes = {
-        { DT::FLOAT, DT::INT, DT::INT, DT::FLOAT, DT::FLOAT, DT::FLOAT,
-          DT::FLOAT, DT::FLOAT, DT::FLOAT, DT::FLOAT, DT::FLOAT, DT::FLOAT,
-          DT::FLOAT, DT::UNKNOWN, DT::FLOAT, DT::FLOAT, DT::FLOAT, DT::NIL,
-          DT::UNKNOWN, DT::STRING, DT::BOOL
-        },
-        { DT::UNKNOWN, DT::STRING, DT::STRING, DT::UNKNOWN, DT::STRING,
-          DT::FUNCTION, DT::UNKNOWN, DT::INT, DT::STRING, DT::UNKNOWN,
-          DT::STRING, DT::INT, DT::STRING, DT::STRING, DT::STRING,
-          DT::STRING, DT::UNKNOWN 
-        },
-        { DT::STRING, DT::NIL, DT::TABLE, DT::TABLE, DT::UNKNOWN, DT::NIL,
-          DT::UNKNOWN 
-        },
-        { DT::FLOAT, DT::UNKNOWN, DT::FLOAT, DT::UNKNOWN, DT::NIL,
-          DT::UNKNOWN, DT::UNKNOWN, DT::UNKNOWN, DT::UNKNOWN, DT::INT,
-          DT::STRING 
-        },
-        { DT::BOOL, DT::BOOL, DT::UNKNOWN, DT::FUNCTION, DT::UNKNOWN,
-          DT::UNKNOWN, DT::UNKNOWN, DT::UNKNOWN, DT::UNKNOWN, DT::UNKNOWN 
-        },
-        { DT::UNKNOWN, DT::BOOL, DT::UNKNOWN, DT::UNKNOWN, DT::STRING,
-          DT::FUNCTION, DT::UNKNOWN, DT::BOOL 
-        },
-        { DT::STRING, DT::UNKNOWN, DT::FUNCTION, DT::UNKNOWN, DT::INT },
-        { DT::NIL, DT::UNKNOWN, DT::TABLE, DT::UNKNOWN, DT::TABLE, DT::TABLE,
-          DT::UNKNOWN, DT::UNKNOWN, DT::NIL, DT::STRING, DT::UNKNOWN,
-          DT::STRING, DT::UNKNOWN, DT::STRING, DT::UNKNOWN, DT::NIL 
-        },
-        { DT::UNKNOWN, DT::UNKNOWN },
-        { DT::BOOL, DT::UNKNOWN, DT::FUNCTION, DT::UNKNOWN, DT::UNKNOWN,
-          DT::BOOL, DT::UNKNOWN }
-    };
-
-
-    for (size_t i = 0; i < globalMethodRetTypes.size(); ++i) {
-        Symbol parent_symb = {
-            .kind_ = Symbol::Kind::GLOBAL,
-            .data_type_ = Symbol::DataType::NIL,
-            .name_ = globalIdentNames[i],
-            .is_used_ = false,
-            .node_ = nullptr 
-        };
-
-        parent_symb.method_map_.emplace();
-        parent_symb.method_map_->reserve(globalMethodNames[i].size());
-
-        for (size_t j = 0; j < globalMethodNames[i].size(); ++j) {
-            Symbol method_symb = {
-                .kind_ = Symbol::Kind::LOCAL,
-                .data_type_ = globalMethodRetTypes[i][j],
-                .name_ = globalMethodNames[i][j],
-            };
-
-            method_symb.return_types_.emplace();
-            method_symb.return_types_->push_back(globalMethodRetTypes[i][j]);
-
-            parent_symb.method_map_->push_back(method_symb);
-        }
-
-        scopes_.front()->add_into_symbols(globalIdentNames[i], parent_symb);
-    }
-}
 
 void SemanticAnalyzer::visit(VariableNode* vNode) {
     std::string val = std::get<std::string>(vNode->value.value);
@@ -1682,17 +1557,29 @@ void SemanticAnalyzer::visit(NumericForNode* nfNode) {
 
     scopes_.back()->add_into_symbols(iter_variable_name, iter_variable_symb);
 
-    nfNode->start->accept(*this);
-    nfNode->step->accept(*this);
-    nfNode->finish->accept(*this);
+    if (nfNode->start)  nfNode->start->accept(*this);
+    if (nfNode->step)   nfNode->step->accept(*this);
+    if (nfNode->finish) nfNode->finish->accept(*this);
 
-    if (nfNode->finish->node_data_type != Symbol::DataType::BOOL) {
-        diags_.collect_diags(
-                "invalid for statement", 
-                "finish block (the one between first and second ;) should be boolean",
+    auto isNumber = [] (Node* n) {
+        if (!n || !n->node_data_type) { return true; }
+
+        return *n->node_data_type == Symbol::DataType::INT
+            || *n->node_data_type == Symbol::DataType::FLOAT
+            || *n->node_data_type == Symbol::DataType::UNKNOWN;
+    };
+
+    if (!isNumber(nfNode->start)
+        || !isNumber(nfNode->step)
+        || !isNumber(nfNode->finish))
+        {
+            diags_.collect_diags("unexpected for loop param(s)",
+                "numeric for loop parameters should be numbers",
                 DiagnosticEngine::DiagType::ERROR, nfNode);
-        return;
-    }
+
+            removeScope();
+            return;
+        }
 
     for (const auto& iter: nfNode->body) { iter->accept(*this); }
     removeScope();

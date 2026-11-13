@@ -15,6 +15,7 @@ add_executable(
     main.cpp
     src/sema/sema.cpp
     src/lexer/lexer.cpp
+    src/libs/std_lib.cpp
     src/parser/parser.cpp
     src/allocator/alloc.cpp
 )

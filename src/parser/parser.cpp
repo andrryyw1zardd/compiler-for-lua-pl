@@ -4,12 +4,7 @@
 #include <algorithm>
 #include <iostream>
 
-Arena arena{1024 * 1024 * 10};
-ArenaAllocator<Node*> alloc(arena);
-ArenaAllocator<Type> alloc_for_type(arena);
-ArenaAllocator<bool> alloc_for_bool(arena);
-
-void Parser::free_arena() { arena.free(); }
+void Parser::free_arena() { arena_.free(); }
 
 const Token& Parser::peek() {
     if (index >= listOfTokens.size()) return eof;

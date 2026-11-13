@@ -8,11 +8,17 @@
 class Arena {
 private:
     std::byte* buffer_;
-    std::size_t size_;
     std::size_t index_ = 0;
+    std::size_t size_;
 
 public:
+    Arena() = default; 
     Arena(size_t);
+
+    // no copying
+    Arena(const Arena&) = delete;
+    Arena& operator=(const Arena&) = delete;
+
     ~Arena();
     void* allocate(std::size_t, std::size_t);
     void free();
@@ -26,6 +32,7 @@ private:
 public:
     using value_type = T;
 
+    ArenaAllocator() = default;
     ArenaAllocator(Arena& a) : arena(&a) { }
     ~ArenaAllocator() { }
 

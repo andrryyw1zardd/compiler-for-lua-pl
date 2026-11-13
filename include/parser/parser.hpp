@@ -556,8 +556,17 @@ public:
     std::vector<Node*, ArenaAllocator<Node*>> parse_block(); 
     Node* parse_stat();
 
-    Parser(std::vector<Token> VectorOfTokens) : listOfTokens(std::move(VectorOfTokens)) {}
+    Arena& arena_;
+    ArenaAllocator<Node*> alloc;
+    ArenaAllocator<Type> alloc_for_type;
+    ArenaAllocator<bool> alloc_for_bool;
+
+    Parser(std::vector<Token> VectorOfTokens, Arena& arena)
+    : listOfTokens(std::move(VectorOfTokens)), arena_(arena),
+    alloc(arena), alloc_for_type(arena), alloc_for_bool(arena) { }
+
     ~Parser() { free_arena(); }
 };
+
 
 #endif

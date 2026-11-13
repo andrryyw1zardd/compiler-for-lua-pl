@@ -99,19 +99,13 @@ public:
 
 class SemanticAnalyzer : public Visitor {
 private:
-    std::vector<std::unique_ptr<Scope>> scopes_;
-    std::vector<std::variant<FunctionNode*, AnonFunctionNode*, MethodNode*>> func_scopes_;
     DiagnosticEngine& diags_;
 
 public:
-    SemanticAnalyzer(DiagnosticEngine& d) : diags_(d) { 
-        scopes_.push_back(std::make_unique<Scope>(nullptr));
-        initGlobalFunctions();
-        initGlobalMethods();
-    }
+    std::vector<std::unique_ptr<Scope>> scopes_;
+    std::vector<std::variant<FunctionNode*, AnonFunctionNode*, MethodNode*>> func_scopes_;
 
-    void initGlobalFunctions();
-    void initGlobalMethods();
+    SemanticAnalyzer(DiagnosticEngine&);
  
     void print_diags();
     int diag_count();
